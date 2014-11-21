@@ -6,7 +6,7 @@ Whitch named
 With following format:
 
 [DB_ORANGEJUICE]    
-# Only support MySQL DB Now
+//Only support MySQL DB Now
 Host = #your host# 
 User = #your username#
 Password = #your password#
