@@ -55,4 +55,4 @@ target/
 
 # Orange
 *.conf
-orangejuice/conf/
+orangejuice/conf/*.conf
