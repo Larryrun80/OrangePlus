@@ -56,3 +56,4 @@ target/
 # Orange
 *.conf
 orangejuice/conf/*.conf
+orangepeel/conf/*.conf
