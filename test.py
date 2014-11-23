@@ -5,6 +5,7 @@ import sys
 from orangejuice.utils.orangemail import OrangeMail
 from orangejuice.utils.orangemysql import OrangeMySQL
 from orangejuice.utils.orangecsv import OrangeCsv
+from orangejuice.utils.orangelog import OrangeLog
 
 # Mail example
 # ============
@@ -23,6 +24,7 @@ from orangejuice.utils.orangecsv import OrangeCsv
     # [1000,]
     # )
 # print(result.fetchall())
+# mysql_handler.close()
 
 # CSV file example
 # ================
@@ -32,3 +34,8 @@ from orangejuice.utils.orangecsv import OrangeCsv
 # csv_handler.write(data)
 # csv_handler.write(header+data)
 # csv_handler.write(data,'a')
+
+# Log example
+# ===========
+# logger = OrangeLog('test').getLogger()
+# logger.debug('test1 %s:%s','a','b')

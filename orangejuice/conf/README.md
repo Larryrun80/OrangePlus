@@ -16,4 +16,10 @@ Database = #your database#
 SMTP = #your SMTP Server# 
 User = #your username# 
 Password = #your password# 
+
+[LOG_FILE_SETTINGS]
+Type = (Dynamic|Static) 
+Dir = #your dir to create log files, '/' presents project root#
+DynamicPart = %%Y%%m%%d # format of time string, to create Dynamic path
+Format = %%(asctime)s : %%(levelname)s : %%(message)s
 ```
