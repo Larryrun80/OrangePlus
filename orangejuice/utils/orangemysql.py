@@ -23,14 +23,12 @@ class OrangeMySQL:
             )
         self.cursor = self.cnx.cursor()
 
-    def execute(self, query, parameters=None):
+    def execute(self, query, *args):
         # Check input data format
         if (not isinstance(query, str)):
             raise RuntimeError('Invalid Query: Must be a String!')
-        if parameters and not isinstance(parameters, list):
-            raise RuntimeError('Invalid parameters: Must be a list!')
 
-        self.cursor.execute(query, parameters)
+        self.cursor.execute(query, args)
         return self.cursor
 
     def close(self):

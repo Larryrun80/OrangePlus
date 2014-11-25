@@ -22,8 +22,9 @@ class OrangeMail:
 
         self.smtp = smtplib.SMTP(config.get('MAIL_INFO','SMTP'))
         self.smtp.login(config.get('MAIL_INFO','User'), config.get('MAIL_INFO','Password'))
+        self.send_from = config.get('MAIL_INFO','User')
 
-    def send_mail(self, send_from, send_to, subject, text, files=None):
+    def send_mail(self, send_to, subject, text, files=None):
         # Check input data format
         if files and not isinstance(files, list):
             raise RuntimeError('Invalid Files, Should Pass a List!')
@@ -32,7 +33,7 @@ class OrangeMail:
 
         # Build Mail info
         msg = MIMEMultipart();
-        msg['From'] = send_from
+        msg['From'] = self.send_from
         msg['To'] = email.utils.COMMASPACE.join(send_to)
         msg['Subject'] = subject
         msg.attach( MIMEText(text) )
