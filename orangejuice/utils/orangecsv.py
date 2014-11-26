@@ -7,23 +7,24 @@ import os
 class OrangeCsv:
     ''' This is a Class to Simplify Reading from & Writing to Excel files '''
 
-    def __init__(self, file):
-        self.csv_file = file
-
-    def write(self, data, operation='w'):
+    def write(self, filename, data, operation='w'):
         # Check input data format
         if not isinstance(data, list):
             raise RuntimeError('Invalid Data, Should Pass a List!')
         if operation and not isinstance(operation, str):
             raise RuntimeError('Invalid Operation, Should Pass a String!')
+        if not isinstance(filename, str):
+            raise RuntimeError('Invalid File Name, Should Pass a String!')
 
-        if not os.path.exists(os.path.dirname(self.csv_file)):
-            os.makedirs(os.path.dirname(self.csv_file))
+        # Create File if File is not Exists
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
 
-        if not os.path.isfile(self.csv_file):
-            file = open(self.csv_file, 'w')
+        if not os.path.isfile(filename):
+            file = open(filename, 'w')
             file.close()
 
-        with open(self.csv_file, operation) as f:
+        # Write csv data
+        with open(filename, operation) as f:
             writer = csv.writer(f)
             writer.writerows(data)
