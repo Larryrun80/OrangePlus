@@ -10,9 +10,9 @@ from orangejuice.utils.orangelog import OrangeLog
 # Mail example
 # ============
 # mailer = OrangeMail();
-# mailer.send_mail('guonan@doweidu.com', 
-#                 ['guonan@doweidu.com',], 
-#                 'test', 
+# mailer.send_mail('zhujue@doweidu.com',
+#                 ['zhujue@doweidu.com',],
+#                 'test',
 #                 'this is a test from python',
 #                 [sys.path[0] + '/README.md',])
 
@@ -20,17 +20,18 @@ from orangejuice.utils.orangelog import OrangeLog
 # =============
 # mysql_handler = OrangeMySQL();
 # result = mysql_handler.execute(
-    # 'select * from murcielago_user WHERE uid > %s limit 3;', 
-    # [1000,]
-    # )
-# print(result.fetchall())
+#     'select uid, mobile, money from murcielago_user WHERE uid > %s limit 3;',
+#     [1000,]
+#     )
+# for (uid, mobile, money) in result:
+#     print(uid, mobile, money)
 # mysql_handler.close()
 
 # CSV file example
 # ================
 # csv_handler = OrangeCsv(sys.path[0] + '/test.csv')
 # header = [('col1', 'col2', 'col3')]
-# data = [(1,2,3),('a','b','c')]
+# data = [(1,2,3),('a','b','c'),(4,6,8)]
 # csv_handler.write(data)
 # csv_handler.write(header+data)
 # csv_handler.write(data,'a')
@@ -38,4 +39,7 @@ from orangejuice.utils.orangelog import OrangeLog
 # Log example
 # ===========
 # logger = OrangeLog('test').getLogger()
-# logger.debug('test1 %s:%s','a','b')
+# logger.info('test1 %s:%s','a','b')
+
+# ======Orange Test============
+
