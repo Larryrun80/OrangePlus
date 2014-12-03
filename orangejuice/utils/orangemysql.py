@@ -19,25 +19,32 @@ class OrangeMySQL:
             user=config.get(section_name,'User'),
             password=config.get(section_name,'Password'),
             host=config.get(section_name,'Host'),
-            database=config.get(section_name,'Database')
+            database=config.get(section_name,'Database'),
+            buffered=True
             )
         self.cursor = self.cnx.cursor()
-
-    def query(self, query, *args):
-        # Check input data format
-        if (not isinstance(query, str)):
-            raise RuntimeError('Invalid Query: Must be a String!')
-
-        self.cursor.execute(query, args)
-        return self.cursor
 
     def execute(self, query, *args):
         # Check input data format
         if (not isinstance(query, str)):
             raise RuntimeError('Invalid Query: Must be a String!')
         self.cursor.execute(query, args)
-        self.cursor.fetchone()
+        return self.cursor
 
+    def executemany(self, query, data):
+        # Check input data format
+        if (not isinstance(query, str)):
+            raise RuntimeError('Invalid Query: Must be a String!')
+        if (not isinstance(data, list)):
+            raise RuntimeError('Invalid Data: Must be a List!')
+        self.cursor.executemany(query, data)
+
+    def commit(self):
+        self.cnx.commit()
 
     def close(self):
         self.cnx.close()
+
+    def get_cnx(self):
+        return self.cnx
+

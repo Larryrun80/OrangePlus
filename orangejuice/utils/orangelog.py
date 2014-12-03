@@ -10,7 +10,7 @@ import time
 class OrangeLog:
     ''' This is a Class to Simplify Loggine issues. '''
 
-    def __init__(self, name=''):
+    def __init__(self, section_name, name=''):
         # You can pass a name to build your log file path
         # Setting TimeZone
         os.environ['TZ'] = 'Asia/Shanghai'
@@ -24,24 +24,24 @@ class OrangeLog:
         self.name = name
 
         # Build File Path String
-        if config.get('LOG_FILE_SETTINGS', 'Type') == 'Dynamic' :
+        if config.get(section_name, 'Type') == 'Dynamic' :
             if name != '':
                 sep = '-'
             else:
                 sep = ''
             self.log_path = sys.path[0] \
-                            + config.get('LOG_FILE_SETTINGS', 'Dir') \
+                            + config.get(section_name, 'Dir') \
                             + name \
                             + sep \
                             + time.strftime(
-                              config.get('LOG_FILE_SETTINGS', 'DynamicPart')
+                              config.get(section_name, 'DynamicPart')
                               ) \
                             + '.log'
-        elif config.get('LOG_FILE_SETTINGS','Type') == 'Static' :
+        elif config.get(section_name,'Type') == 'Static' :
             if name == '':
                 name = 'orange'
             self.log_path = sys.path[0] \
-                            + config.get('LOG_FILE_SETTINGS', 'Dir') \
+                            + config.get(section_name, 'Dir') \
                             + name \
                             + '.log'
         else:
@@ -55,7 +55,7 @@ class OrangeLog:
         logging.basicConfig(
             level = logging.NOTSET,
             filename = self.log_path,
-            format = config.get('LOG_FILE_SETTINGS', 'Format'),
+            format = config.get(section_name, 'Format'),
             filemode = 'a',
             )
 
