@@ -20,6 +20,7 @@ class OrangeMySQL:
             password=config.get(section_name,'Password'),
             host=config.get(section_name,'Host'),
             database=config.get(section_name,'Database'),
+            port=config.get(section_name,'Port'),
             buffered=True
             )
         self.cursor = self.cnx.cursor()

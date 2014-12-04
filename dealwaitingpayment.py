@@ -7,6 +7,23 @@ from orangejuice.utils.orangelog import OrangeLog
 
 def get_waiting_confirm_orders():
     querystring_get_pool = '''
+       SELECT remark
+         FROM Log_Order
+        WHERE status = 19
+     ORDER BY id DESC
+        LIMIT 5;
+    '''
+    result = db_orange_handler.execute(querystring_get_pool).fetchall()
+    for remark in result:
+        pos_start = remark.find('orderSn=')+8
+        pos_end = remark.find('&amount')
+        print('start:{}, end:{}'.format(pos_start,pos_end))
+        if (pos_start<pos_end):
+            order_sn = remark[pos_start:pos_end]
+            print(order_sn)
+
+def get_not_dealed_orders():
+    querystring_get_pool = '''
        SELECT o.orderId, 
               se.poolId
          FROM murcielago_order o
@@ -19,7 +36,7 @@ def get_waiting_confirm_orders():
         WHERE o.orderStatus = -2
           AND g.isMultiShop = se.isMultiShop;
     '''
-    return db_orange_handler.execute(querystring_get_pool).fetchall()
+    return db_wechat_handler.execute(querystring_get_pool).fetchall()
 
 def find_distirbution_no(pool_id):
     querystring_get_ecode = '''
@@ -61,30 +78,34 @@ def update_order(order_id, ecode):
     '''
     # print('Done! Order is Now: \n{0}'.format(db_orange_handler.execute(query, order_id).fetchall()))
 
-logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
-logger.info('=======Start Working=======')
+db_wechat_handler = OrangeMySQL('DB_WECHAT')
+get_waiting_confirm_orders()
 
-try:
-    db_orange_handler = OrangeMySQL('DB_ORANGE')
-    db_ecode_handler = OrangeMySQL('DB_ECODE')
+# logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
+# logger.info('=======Start Working=======')
 
-    # 找到-2状态订单
-    result = get_waiting_confirm_orders()
-    if len(result) == 0:
-        logger.info('Nothing Have to Deal With, Going To Sleep...')
-    else:
-        # 取出当前活动对应的通兑／非通兑库id
-        for (order_id, pool_id) in result:
-            logger.info('Dealing With Order: %s, Which With Pool %s', order_id, pool_id)
-            # 更新一个可用的验证码状态，并取出这个验证码
-            ecode = find_distirbution_no(pool_id)
-            logger.info('Dealing With Order: %s, Using Distribution No %s', order_id, ecode)
-            # 更新订单
-            update_order(order_id, ecode)
-            logger.info('-------Dealed Order: %s-------', order_id)
+# try:
+#     db_orange_handler = OrangeMySQL('DB_ORANGE')
+#     db_ecode_handler = OrangeMySQL('DB_ECODE')
+#     db_wechat_handler = OrangeMySQL('DB_WECHAT')
 
-    db_orange_handler.close()
-    db_ecode_handler.close()
+#     # 找到-2状态订单
+#     result = get_waiting_confirm_orders()
+#     if len(result) == 0:
+#         logger.info('Nothing Have to Deal With, Going To Sleep...')
+#     else:
+#         # 取出当前活动对应的通兑／非通兑库id
+#         for (order_id, pool_id) in result:
+#             logger.info('Dealing With Order: %s, Which With Pool %s', order_id, pool_id)
+#             # 更新一个可用的验证码状态，并取出这个验证码
+#             ecode = find_distirbution_no(pool_id)
+#             logger.info('Dealing With Order: %s, Using Distribution No %s', order_id, ecode)
+#             # 更新订单
+#             update_order(order_id, ecode)
+#             logger.info('-------Dealed Order: %s-------', order_id)
 
-except:
-    logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+#     db_orange_handler.close()
+#     db_ecode_handler.close()
+
+# except:
+#     logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
