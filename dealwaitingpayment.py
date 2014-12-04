@@ -5,15 +5,15 @@ import sys
 from orangejuice.utils.orangemysql import OrangeMySQL
 from orangejuice.utils.orangelog import OrangeLog
 
-def not_dealed_orders():
-    querystring_get_pool = '''
+def not_dealed_wechat_orders():
+    querystring_get_wechat_error_order = '''
        SELECT remark
          FROM Log_Order
         WHERE status = 19
      ORDER BY id DESC
         LIMIT 5;
     '''
-    result = db_wechat_handler.execute(querystring_get_pool).fetchall()
+    result = db_wechat_handler.execute(querystring_get_wechat_error_order).fetchall()
     for remark in result:
         pos_start = remark.find('orderSn=')+8
         pos_end = remark.find('&amount')
@@ -21,6 +21,27 @@ def not_dealed_orders():
         if (pos_start<pos_end):
             order_sn = remark[pos_start:pos_end]
             print(order_sn)
+
+def get_order_info(type, value):
+    querystring_get_order_info = '''
+       SELECT o.orderId, 
+              se.poolId
+         FROM murcielago_order o
+    LEFT JOIN murcielago_goods_shop gs
+           ON o.goodsId = gs.goodsId
+    LEFT JOIN murcielago_goods g
+           ON o.goodsId=g.goodsId
+    LEFT JOIN murcielago_shop_ecodepool se
+           ON gs.shopId = se.shopId
+        WHERE g.isMultiShop = se.isMultiShop
+    '''
+    if type=='id':
+        querystring_get_order_info = querystring_get_order_info +\
+        ' AND o.orderId = {}'.format(value)
+    if type=='status':
+        querystring_get_order_info = querystring_get_order_info +\
+        ' AND o.orderStatus = {}'.format(value)
+    return db_orange_handler.execute(querystring_get_pool).fetchall()
 
 def get_waiting_confirm_orders():
     querystring_get_pool = '''
@@ -78,8 +99,7 @@ def update_order(order_id, ecode):
     '''
     # print('Done! Order is Now: \n{0}'.format(db_orange_handler.execute(query, order_id).fetchall()))
 
-db_wechat_handler = OrangeMySQL('DB_WECHAT')
-not_dealed_orders()
+get_order_info('id', 103)
 
 # logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
 # logger.info('=======Start Working=======')
