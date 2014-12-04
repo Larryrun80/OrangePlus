@@ -12,8 +12,7 @@ def get_not_dealed_wechat_orders():
 	      remark
          FROM Log_Order
         WHERE status = 19
-     ORDER BY id DESC
-        LIMIT 40;
+     ORDER BY id DESC;
     '''
     # 取出所有状态为19 的订单
     result = db_wechat_handler.execute(querystring_get_wechat_error_order).fetchall()
