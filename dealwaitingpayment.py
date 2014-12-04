@@ -73,7 +73,7 @@ def get_order_info(type, value):
     if type=='status':
         querystring_get_order_info = querystring_get_order_info +\
         ' AND o.orderStatus = {}'.format(value)
-    return db_orange_handler.execute(querystring_get_pool).fetchall()
+    return db_orange_handler.execute(querystring_get_order_info).fetchall()
 
 def get_waiting_confirm_orders():
     querystring_get_pool = '''
