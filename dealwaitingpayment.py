@@ -9,7 +9,7 @@ def get_not_dealed_wechat_orders():
     orders_to_deal_with = []
     querystring_get_wechat_error_order = '''
        SELECT id,
-	      remark
+	            remark
          FROM Log_Order
         WHERE status = 19
      ORDER BY id DESC;
@@ -48,7 +48,7 @@ def get_order_info(type, value):
     LEFT JOIN murcielago_goods_shop gs
            ON o.goodsId = gs.goodsId
     LEFT JOIN murcielago_goods g
-           ON o.goodsId=g.goodsId
+           ON o.goodsId = g.goodsId
     LEFT JOIN murcielago_shop_ecodepool se
            ON gs.shopId = se.shopId
         WHERE g.isMultiShop = se.isMultiShop
@@ -92,17 +92,6 @@ def update_order(order_id, ecode):
     '''
     result = db_orange_handler.execute(querystring_update_order, ecode, order_id)
     db_orange_handler.commit()
-
-    # 验证
-    query = '''
-    SELECT orderId, 
-           payStatus, 
-           orderStatus, 
-           distributionNo
-      FROM murcielago_order
-     WHERE orderId = %s;
-    '''
-    # print('Done! Order is Now: \n{0}'.format(db_orange_handler.execute(query, order_id).fetchall()))
 
 logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
 logger.info('=======Start Working=======')
