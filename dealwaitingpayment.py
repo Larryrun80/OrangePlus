@@ -5,22 +5,54 @@ import sys
 from orangejuice.utils.orangemysql import OrangeMySQL
 from orangejuice.utils.orangelog import OrangeLog
 
-def not_dealed_orders():
-    querystring_get_pool = '''
-       SELECT remark
+def not_dealed_wechat_orders():
+    orders_to_deal_with = []
+    querystring_get_wechat_error_order = '''
+       SELECT id,
+	      remark
          FROM Log_Order
         WHERE status = 19
      ORDER BY id DESC
-        LIMIT 5;
+        LIMIT 40;
     '''
-    result = db_wechat_handler.execute(querystring_get_pool).fetchall()
-    for remark in result:
+    result = db_wechat_handler.execute(querystring_get_wechat_error_order).fetchall()
+    for (id, remark) in result:
         pos_start = remark.find('orderSn=')+8
         pos_end = remark.find('&amount')
-        print('start:{}, end:{}'.format(pos_start,pos_end))
         if (pos_start<pos_end):
             order_sn = remark[pos_start:pos_end]
-            print(order_sn)
+            order_info = get_order_info('sn', order_sn)
+            if len(order_info) == 0:
+                logger.info('Nothing to do')
+            else:
+                logger.info('-------Dealed Sn: %s-------', order_sn)
+                for (order_id, pool_id) in order_info:
+                    orders_to_deal_with.append((order_id, pool_id))
+    return orders_to_deal_with
+
+def get_order_info(type, value):
+    querystring_get_order_info = '''
+       SELECT o.orderId, 
+              se.poolId
+         FROM murcielago_order o
+    LEFT JOIN murcielago_goods_shop gs
+           ON o.goodsId = gs.goodsId
+    LEFT JOIN murcielago_goods g
+           ON o.goodsId=g.goodsId
+    LEFT JOIN murcielago_shop_ecodepool se
+           ON gs.shopId = se.shopId
+        WHERE g.isMultiShop = se.isMultiShop
+    '''
+    if type=='sn':
+        querystring_get_order_info = querystring_get_order_info +\
+        '''
+          AND o.orderSn = %s
+          AND o.orderStatus in (-2,-1,0)
+        '''
+    if type=='status':
+        querystring_get_order_info = querystring_get_order_info +\
+        ' AND o.orderStatus = %s'
+    return db_orange_handler.execute(querystring_get_order_info, value).fetchall()
 
 def get_waiting_confirm_orders():
     querystring_get_pool = '''
@@ -78,9 +110,28 @@ def update_order(order_id, ecode):
     '''
     # print('Done! Order is Now: \n{0}'.format(db_orange_handler.execute(query, order_id).fetchall()))
 
-db_wechat_handler = OrangeMySQL('DB_WECHAT')
-not_dealed_orders()
+logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
+logger.info('=======Start Working=======')
 
+db_wechat_handler = OrangeMySQL('DB_WECHAT')
+db_orange_handler = OrangeMySQL('DB_ORANGE')
+db_ecode_handler = OrangeMySQL('DB_ECODE')
+result = not_dealed_wechat_orders()
+if len(result) == 0:
+    logger.info('Nothing Have to Deal With, Going To Sleep...')
+else:
+    # 取出当前活动对应的通兑／非通兑库id
+    for (order_id, pool_id) in result:
+        logger.info('Dealing With Order: %s, Which With Pool %s', order_id, pool_id)
+        # 更新一个可用的验证码状态，并取出这个验证码
+        ecode = find_distirbution_no(pool_id)
+        logger.info('Dealing With Order: %s, Using Distribution No %s', order_id, ecode)
+        # 更新订单
+        update_order(order_id, ecode)
+        logger.info('-------Dealed Order: %s-------', order_id)
+
+db_orange_handler.close()
+db_ecode_handler.close()
 # logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
 # logger.info('=======Start Working=======')
 
