@@ -54,6 +54,27 @@ def get_order_info(type, value):
         ' AND o.orderStatus = %s'
     return db_orange_handler.execute(querystring_get_order_info, value).fetchall()
 
+def get_order_info(type, value):
+    querystring_get_order_info = '''
+       SELECT o.orderId, 
+              se.poolId
+         FROM murcielago_order o
+    LEFT JOIN murcielago_goods_shop gs
+           ON o.goodsId = gs.goodsId
+    LEFT JOIN murcielago_goods g
+           ON o.goodsId=g.goodsId
+    LEFT JOIN murcielago_shop_ecodepool se
+           ON gs.shopId = se.shopId
+        WHERE g.isMultiShop = se.isMultiShop
+    '''
+    if type=='id':
+        querystring_get_order_info = querystring_get_order_info +\
+        ' AND o.orderId = {}'.format(value)
+    if type=='status':
+        querystring_get_order_info = querystring_get_order_info +\
+        ' AND o.orderStatus = {}'.format(value)
+    return db_orange_handler.execute(querystring_get_pool).fetchall()
+
 def get_waiting_confirm_orders():
     querystring_get_pool = '''
        SELECT o.orderId, 
