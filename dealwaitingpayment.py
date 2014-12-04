@@ -5,7 +5,7 @@ import sys
 from orangejuice.utils.orangemysql import OrangeMySQL
 from orangejuice.utils.orangelog import OrangeLog
 
-def get_waiting_confirm_orders():
+def not_dealed_orders():
     querystring_get_pool = '''
        SELECT remark
          FROM Log_Order
@@ -13,7 +13,7 @@ def get_waiting_confirm_orders():
      ORDER BY id DESC
         LIMIT 5;
     '''
-    result = db_orange_handler.execute(querystring_get_pool).fetchall()
+    result = db_wechat_handler.execute(querystring_get_pool).fetchall()
     for remark in result:
         pos_start = remark.find('orderSn=')+8
         pos_end = remark.find('&amount')
@@ -22,7 +22,7 @@ def get_waiting_confirm_orders():
             order_sn = remark[pos_start:pos_end]
             print(order_sn)
 
-def get_not_dealed_orders():
+def get_waiting_confirm_orders():
     querystring_get_pool = '''
        SELECT o.orderId, 
               se.poolId
@@ -36,7 +36,7 @@ def get_not_dealed_orders():
         WHERE o.orderStatus = -2
           AND g.isMultiShop = se.isMultiShop;
     '''
-    return db_wechat_handler.execute(querystring_get_pool).fetchall()
+    return db_orange_handler.execute(querystring_get_pool).fetchall()
 
 def find_distirbution_no(pool_id):
     querystring_get_ecode = '''
@@ -79,7 +79,7 @@ def update_order(order_id, ecode):
     # print('Done! Order is Now: \n{0}'.format(db_orange_handler.execute(query, order_id).fetchall()))
 
 db_wechat_handler = OrangeMySQL('DB_WECHAT')
-get_waiting_confirm_orders()
+not_dealed_orders()
 
 # logger = OrangeLog('LOG_ORANGE', 'WP_Order').getLogger()
 # logger.info('=======Start Working=======')
