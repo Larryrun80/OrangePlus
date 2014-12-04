@@ -48,7 +48,7 @@ def get_order_info(type, value):
     LEFT JOIN murcielago_goods_shop gs
            ON o.goodsId = gs.goodsId
     LEFT JOIN murcielago_goods g
-           ON o.goodsId=g.goodsId
+           ON o.goodsId = g.goodsId
     LEFT JOIN murcielago_shop_ecodepool se
            ON gs.shopId = se.shopId
         WHERE g.isMultiShop = se.isMultiShop
