@@ -26,7 +26,8 @@ def get_not_dealed_wechat_orders():
           order_info = get_order_info('sn', order_sn)
           if len(order_info) > 0:
               for (order_id, pool_id) in order_info:
-                  orders_to_deal_with.append((order_id, pool_id))
+                  if (order_id, pool_id) not in orders_to_deal_with:
+                      orders_to_deal_with.append((order_id, pool_id))
       # 将其状态变更为190，表示已处理过
       change_log_status(id)
     return orders_to_deal_with
