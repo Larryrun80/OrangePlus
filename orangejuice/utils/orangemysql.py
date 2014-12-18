@@ -11,8 +11,6 @@ class OrangeMySQL:
 
     ''' This Class is To Simplify Operate MySQL Databases. '''
 
-    PORT = '3306'
-
     def __init__(self, section_name):
         # Read config file and init MySQL settings
         self._config_file = os.path.split(os.path.dirname(__file__))[0]
@@ -25,8 +23,7 @@ class OrangeMySQL:
             password=config.get(section_name, 'Password'),
             host=config.get(section_name, 'Host'),
             database=config.get(section_name, 'Database'),
-            # port=config.get(section_name, 'Port'),
-            port=self.PORT,
+            port=config.get(section_name, 'Port'),
             connection_timeout=60,
             buffered=True
             )
