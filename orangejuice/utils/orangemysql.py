@@ -2,11 +2,16 @@
 #Filename: orangejuice/utils/orangemysql.py
 
 import configparser
-import mysql.connector
 import os
 
+import mysql.connector
+
+
 class OrangeMySQL:
+
     ''' This Class is To Simplify Operate MySQL Databases. '''
+
+    PORT = '3306'
 
     def __init__(self, section_name):
         # Read config file and init MySQL settings
@@ -16,11 +21,12 @@ class OrangeMySQL:
         config.read(self._config_file)
 
         self.cnx = mysql.connector.connect(
-            user=config.get(section_name,'User'),
-            password=config.get(section_name,'Password'),
-            host=config.get(section_name,'Host'),
-            database=config.get(section_name,'Database'),
-            port=config.get(section_name,'Port'),
+            user=config.get(section_name, 'User'),
+            password=config.get(section_name, 'Password'),
+            host=config.get(section_name, 'Host'),
+            database=config.get(section_name, 'Database'),
+            # port=config.get(section_name, 'Port'),
+            port=self.PORT,
             connection_timeout=60,
             buffered=True
             )
@@ -49,4 +55,3 @@ class OrangeMySQL:
 
     def get_cnx(self):
         return self.cnx
-

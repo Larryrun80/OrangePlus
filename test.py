@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #Filename: test.py
 
-import sys
-from orangejuice.utils.orangemail import OrangeMail
-from orangejuice.utils.orangemysql import OrangeMySQL
-from orangejuice.utils.orangecsv import OrangeCsv
-from orangejuice.utils.orangelog import OrangeLog
+# import sys
+# from orangejuice.utils.orangemail import OrangeMail
+# from orangejuice.utils.orangemysql import OrangeMySQL
+# from orangejuice.utils.orangecsv import OrangeCsv
+# from orangejuice.utils.orangelog import OrangeLog
 
 # Mail example
 # ============
@@ -39,21 +39,9 @@ from orangejuice.utils.orangelog import OrangeLog
 # csv_handler.write(csv_file, header+data)
 # csv_handler.write(csv_file, data,'a')
 
-
 # Log example
 # ===========
 # logger = OrangeLog('LOG_ORANGE','test').getLogger()
 # logger.info('test1 %s:%s','a','b')
 
 # ======Orange Test============
-
-
-
-
-
-
-
-
-
-
-
