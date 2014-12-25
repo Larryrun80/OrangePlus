@@ -24,7 +24,7 @@ class OrangeMySQL:
             host=config.get(section_name, 'Host'),
             database=config.get(section_name, 'Database'),
             port=config.get(section_name, 'Port'),
-            connection_timeout=60,
+            connection_timeout=600,
             buffered=True
             )
         self.cursor = self.cnx.cursor()
