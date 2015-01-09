@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-#filename: salesdata.py
+# filename: salesdata.py
 
 import sys
-import time
 
 from orangejuice.utils.orangecsv import OrangeCsv
 from orangejuice.utils.orangemysql import OrangeMySQL
@@ -12,6 +11,7 @@ FILENAME = sys.path[0] + '/salesdata.xls'
 ENCODER = ['utf-8', 'gb18030']
 RECIPIENTS = ['zhujue@doweidu.com']
 db_salesdata_handler = OrangeMySQL('DB_ORANGE')
+
 
 def get_shop_goods_date():
     querstring_shop_goods = '''
@@ -34,6 +34,7 @@ def get_shop_goods_date():
     sgdata = sg_cursor.fetchall()
     sg_cursor.close()
     return sgdata
+
 
 def get_order_date(sgdata):
     result = []
@@ -79,6 +80,7 @@ def generate_file(data):
                '12月订单量', '12月销售额')]
     return csv_handler.write(csv_file, header + data, ENCODER)
 
+
 def sent_email(attachments):
     mailer = OrangeMail('MAIL_ORANGE')
     mailer.send_mail(
@@ -87,7 +89,7 @@ def sent_email(attachments):
         '请查收附件',
         attachments
     )
-# get_shop_goods_date()
+
 expiring_shop_goods_data = get_shop_goods_date()
 expiring_orders_data = get_order_date(expiring_shop_goods_data)
 attachments = generate_file(expiring_orders_data)
