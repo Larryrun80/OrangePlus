@@ -2,6 +2,7 @@
 # filename: blockIp.py
 import os
 import sys
+import subprocess as t
 
 from orangejuice.utils.orangemysql import OrangeMySQL
 from orangejuice.utils.orangelog import OrangeLog
@@ -40,7 +41,6 @@ def read_ips(filename):
 
 def write_ips(filename, ips):
     f = open(filename, 'a')
-    print(ips)
     for ip in ips:
         f.write(ip + '\n')
     f.close()
@@ -52,7 +52,7 @@ def diff(a, b):
 
 def block_ips(ips, logger):
     for ip in ips:
-        cmd_txt = 'iptables -I INPUT -s ' + ip + ' -j DROP'
+        cmd_txt = "iptables -I INPUT -s " + ip + " -j DROP"
         os.system(cmd_txt)
         logger.info('blocked ip: %s', ip)
 
@@ -68,6 +68,6 @@ try:
     ips_exists = read_ips(FILE_NAME)
     ip_to_deal = diff(ips, ips_exists)
     write_ips(FILE_NAME, ip_to_deal)
-    block_ips(ip_to_deal)
+    block_ips(ip_to_deal, logger)
 except:
     logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
