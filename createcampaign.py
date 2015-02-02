@@ -66,7 +66,7 @@ class OriginInfo:
 
     """docstring for OriginInfo"""
 
-    def set_item_name(self, **kwargs):
+    def set_attributes(self, **kwargs):
         for k, v in kwargs.items():
             self.__dict__[k] = v
 
@@ -119,6 +119,7 @@ def get_info(file_name):
         ('item_intro', '商品详细描述（特色/成分/口感/功效等）', ''),
     )
 
+    result = {}
     # key_index 是内容下标，读取到一个值后移动到下一个需要读取的值
     key_index = 0
     for i in range(row_count):
@@ -133,9 +134,10 @@ def get_info(file_name):
                 # 对价格部分， 从字符串中提取整数或浮点数
                 if(contents[key_index][2] == 'float'):
                     value = re.findall('\d*\.\d+|\d+', value)[0]
-                print("%s: %s" % (contents[key_index][0], value))
+                result[contents[key_index][0]] = value
                 if key_index < len(contents) - 1:
                     key_index = key_index + 1
+    return result
 
 
 def get_branches(file_name, brand_name, city=None):
@@ -143,6 +145,11 @@ def get_branches(file_name, brand_name, city=None):
     '''
         从excel获取所有门店信息
     '''
+
+    # brand_name是否包含中文
+    zhPattern = re.compile(u'[\u4e00-\u9fa5]+')
+    if not os.path.exists(file_name) or brand_name is None or not zhPattern.search(brand_name):
+        return None
 
     data = xlrd.open_workbook(file_name)
     table = data.sheets()[0]
@@ -196,7 +203,7 @@ def get_branches(file_name, brand_name, city=None):
         # 添加到branches
         branches.append(branch)
         branch_row = branch_row + offset
-    print(branches)
+    return branches
 
 
 def get_lat_lng_using_address(address, city=None):
@@ -235,25 +242,36 @@ def deal_phone_number(value):
         value = ''.join([i for i in value if i.isdigit()])
 
     # 如果不是手机号，且不是0开头， 加0
-    if (len(value) != 11 or (len(value) == 11 and value[0] != '1')) and value[0] != '0':
+    if len(value) > 0 and (len(value) != 11 or (len(value) == 11 and value[0] != '1')) and value[0] != '0':
         value = '0' + value
     return value
 
 
 def deal_redeem_type(value):
-    result = 0
-    if value.find('网络') != -1 or value.find('微信') != -1:
-        result += 1
-    if value.find('电话') != -1:
-        result += 2
-    if value.find('手工') != -1:
-        result += 4
-    return result
+    if len(value) > 0:
+        result = 0
+        if value.find('网络') != -1 or value.find('微信') != -1:
+            result += 1
+        if value.find('电话') != -1:
+            result += 2
+        if value.find('手工') != -1:
+            result += 4
+        return result
+    else:
+        return ''
 
 
 os.environ['TZ'] = 'Asia/Shanghai'
-# get_info('abc.xls')
-get_branches('abc.xls', '仙尚鲜')
+
+campaign_info = get_info('abc.xlsx')
+print(campaign_info)
+
+branch_info = get_branches('abc.xlsx', campaign_info['brand_name'])
+if branch_info is None:
+    print('fail')
+else:
+    print(branch_info)
+# get_branches('abc.xls', '仙尚鲜')
 
 # i = OriginInfo()
 # i.set_item_name(brand_id=1)
