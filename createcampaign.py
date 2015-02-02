@@ -193,7 +193,9 @@ def deal_phone_number(value):
         value = '0' + value
     return value
 
-get_branches('abc.xls', '仙尚鲜')
+
+get_info('abc.xls')
+# get_branches('abc.xls', '仙尚鲜')
 
 # i = OriginInfo()
 # i.set_item_name(brand_id=1)
