@@ -180,6 +180,8 @@ def get_branches(file_name, brand_name, city=None):
         # 格式化电话和手机
         branch['phone'] = deal_phone_number(branch['phone'])
         branch['mobile'] = deal_phone_number(branch['mobile'])
+        # 格式化验证方式
+        branch['redeem_type'] = deal_redeem_type(branch['redeem_type'])
         # 通过地址和城市获取门店的位置坐标，获取失败返回（0，0）
         poi = get_lat_lng_using_address(branch['address'], city)
         branch['lng'] = poi[0]
@@ -236,6 +238,17 @@ def deal_phone_number(value):
     if (len(value) != 11 or (len(value) == 11 and value[0] != '1')) and value[0] != '0':
         value = '0' + value
     return value
+
+
+def deal_redeem_type(value):
+    result = 0
+    if value.find('网络') != -1 or value.find('微信') != -1:
+        result += 1
+    if value.find('电话') != -1:
+        result += 2
+    if value.find('手工') != -1:
+        result += 4
+    return result
 
 
 os.environ['TZ'] = 'Asia/Shanghai'
