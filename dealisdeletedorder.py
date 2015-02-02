@@ -1,44 +1,36 @@
 #!/user/bin/env python
+# -*- coding: utf-8 -*-
 # Filename: dealisdeletedorder.py
+import sys
 
 from orangejuice.utils.orangemysql import OrangeMySQL
+from orangejuice.utils.orangelog import OrangeLog
 
-db_deleted_handle = OrangeMySQL('DB_ORANGE')
-db_confirmed_handle = OrangeMySQL('DB_ORANGE')
 
-# 处理被删除订单
-querystring_set_status = '''
-    UPDATE murcielago_order
-    SET deleted = 0
-    WHERE dele ted = 1
-    and orderStatus = 1
-    and distributionNO is not null;
-  '''
-db_deleted_handle.execute(querystring_set_status)
-db_deleted_handle.commit()
-print('u save the orders!')
-
-# 处理等待到账的订单
-querystring_not_confirmed_order = '''
-    select orderId
-    from murcielago_order
-    where payStatus=0
-    and orderStatus = -2
-    and distributionNO is not null;
+def deal_delete(db_handler, logger):
+    sql_get_deleted = '''
+    SELECT orderId
+    FROM   murcielago_order
+    WHERE  orderStatus=1
+    AND    deleted=1
+    AND    addTime>unix_timestamp('2015-01-08')
     '''
-result = db_confirmed_handle.execute(
-    querystring_not_confirmed_order).fetchall()
-print(result)
+    result = db_handler.execute(sql_get_deleted).fetchall()
+    print(result)
+    sql_deal_deleted = '''
+    UPDATE murcielago_order
+    SET    deleted=0
+    where  orderId=%s
+    '''
+    for (orderId,) in result:
+        db_handler.execute(sql_deal_deleted, orderId)
+        db_handler.commit()
+        logger.info('dealed deleted order: %s', orderId)
 
-for (orderId,) in result:
-    querystring_update_status = '''
-        UPDATE murcielago_order
-        SET orderStatus=1,
-            payStatus=1
-        WHERE orderId = %s
-      '''
-    db_confirmed_handle.execute(querystring_update_status, orderId)
-    db_confirmed_handle.commit()
-    print('orders confirmed now!')
 
-db_deleted_handle.close()
+try:
+    db_handler = OrangeMySQL('DB_ORANGE')
+    logger = OrangeLog('LOG_ORANGE', 'DelDealer').getLogger()
+    deal_delete(db_handler, logger)
+except:
+    logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))

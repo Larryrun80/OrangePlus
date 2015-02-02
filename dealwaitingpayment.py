@@ -122,9 +122,23 @@ try:
             update_order(order_id, ecode)
             logger.info('-------Dealed Order: %s-------', order_id)
 
+    old_waiting_orders = get_order_info('status', -2)
+    if len(old_waiting_orders) == 0:
+        logger.info('Nothing Have to Deal With Old -2, Going To Sleep...')
+    else:
+        for (order_id, pool_id) in old_waiting_orders:
+            logger.info('Old---Dealing With Order: %s, Which With Pool %s',
+                        order_id, pool_id)
+            # 更新一个可用的验证码状态，并取出这个验证码
+            ecode = find_distirbution_no(pool_id)
+            logger.info('Old---Dealing With Order: % s, Using Distribution No % s',
+                        order_id, ecode)
+            # 更新订单
+            update_order(order_id, ecode)
+            logger.info('-------Dealed Old Order: %s-------', order_id)
+
     db_orange_handler.close()
     db_ecode_handler.close()
 
 except:
     logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
-
