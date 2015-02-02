@@ -6,6 +6,7 @@ import re
 
 import xlrd
 import requests
+import pypinyin
 
 
 class Campaign(object):
@@ -117,7 +118,7 @@ def get_info(file_name):
                 if key_index < len(contents) - 1:
                     key_index = key_index + 1
 
-def get_branches(file_name, city=None):
+def get_branches(file_name, brand_name, city=None):
     data = xlrd.open_workbook(file_name)
     table = data.sheets()[0]
     row_count = table.nrows
@@ -141,7 +142,9 @@ def get_branches(file_name, city=None):
             break
 
     branches = []
+    offset = 0
     while table.cell(branch_row, col_count-1).value != '':
+        offset = offset + 1
         branch = {}
         for i in range(len(branch_format)):
             branch[branch_format[i]] = table.cell(branch_row, i).value
@@ -150,8 +153,12 @@ def get_branches(file_name, city=None):
         poi = get_lat_lng_using_address(branch['address'], city)
         branch['lng'] = poi[0]
         branch['lat'] = poi[1]
+        branch_account = ''
+        for j in range(len(brand_name)):
+            branch_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
+        branch['account'] = branch_account + str(offset)
         branches.append(branch)
-        branch_row = branch_row + 1
+        branch_row = branch_row + offset
     print(branches)
 
 def get_lat_lng_using_address(address, city=None):
@@ -186,7 +193,7 @@ def deal_phone_number(value):
         value = '0' + value
     return value
 
-get_branches('abc.xls')
+get_branches('abc.xls', '仙尚鲜')
 
 # i = OriginInfo()
 # i.set_item_name(brand_id=1)
