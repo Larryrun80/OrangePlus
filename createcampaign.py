@@ -46,10 +46,10 @@ class CampaignDealer:
                 if isinstance(dict_arg[item], item_type):
                     self.__dict__[col] = dict_arg[item]
                 else:
-                    raise RuntimeError('Invalid Type Detected with attrs %s', item)
+                    raise RuntimeError('Invalid Type Detected with attrs %s' % item)
             # 如果是必需的属性而没在列表中
             elif required == 1:
-                raise RuntimeError('Missing Info: %s', item)
+                raise RuntimeError('Missing Info: %s' % item)
 
     def exists_recorder(self):
         return None
@@ -58,8 +58,12 @@ class CampaignDealer:
         if '' == self.table_name:
             raise RuntimeError('Can Not Get Table Name')
 
-        if self.exists_recorder() is not None:
-            raise RuntimeError('EXISTS!')
+        recorders = self.exists_recorder()
+        if recorders is not None:
+            ids = ''
+            for record in recorders:
+                ids += str(record[0]) + ' '
+            raise RuntimeError('EXISTS! id: %s' % ids)
 
         key_params = ''
         val_params = ''
@@ -118,7 +122,7 @@ class Brand(CampaignDealer):
         sql = '''
         SELECT  id, name
         FROM    {table_name}
-        WHERE   name LIKE '{brand_name}%'
+        WHERE   name LIKE '%{brand_name}%'
         '''.format(table_name=self.table_name, brand_name=self.name)
         brand = self.db_handler.execute(sql).fetchall()
         if len(brand) == 0:
