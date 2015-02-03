@@ -5,6 +5,7 @@
 import re
 import time
 import os
+import sys
 
 import xlrd
 import requests
@@ -33,9 +34,10 @@ class CampaignDealer:
     # 数据表名，必需被重载
     table_name = ''
 
-    def __init__(self, arg):
+    def __init__(self, arg, db_handler):
         if isinstance(arg, dict):
             self.set_attrs(arg)
+            self.db_handler = db_handler
 
     def set_attrs(self, dict_arg):
         for (item, item_type, required, col) in self.class_filter:
@@ -49,26 +51,33 @@ class CampaignDealer:
             elif required == 1:
                 raise RuntimeError('Missing Info: %s', item)
 
-    def persist(self, db_handler):
+    def exists_recorder(self):
+        return None
+
+    def persist(self):
         if '' == self.table_name:
             raise RuntimeError('Can Not Get Table Name')
+
+        if self.exists_recorder() is not None:
+            raise RuntimeError('EXISTS!')
 
         key_params = ''
         val_params = ''
         for key, val in self.__dict__.items():
-            key_params += key + ', '
-            if isinstance(val, str):
-                val_params += "'" + val + "', "
-            else:
-                val_params += str(val) + ', '
+            if 'db_handler' != key:
+                key_params += key + ', '
+                if isinstance(val, str):
+                    val_params += "'" + val + "', "
+                else:
+                    val_params += str(val) + ', '
 
         key_params = '({0})'.format(key_params[:-2])
         val_params = '({0})'.format(val_params[:-2])
 
         sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
 
-        cursor = db_handler.execute(sql)
-        db_handler.commit()
+        cursor = self.db_handler.execute(sql)
+        self.db_handler.commit()
         result = cursor.lastrowid
         return result
 
@@ -102,14 +111,26 @@ class Brand(CampaignDealer):
     )
     table_name = 'brand'
 
-    def __init__(self, arg):
-        CampaignDealer.__init__(self, arg)
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
+
+    def exists_recorder(self):
+        sql = '''
+        SELECT  id, name
+        FROM    {table_name}
+        WHERE   name LIKE '{brand_name}%'
+        '''.format(table_name=self.table_name, brand_name=self.name)
+        brand = self.db_handler.execute(sql).fetchall()
+        if len(brand) == 0:
+            return None
+        else:
+            return brand
 
     def persist(self, db_handler):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
-        return CampaignDealer.persist(self, db_handler)
+        return CampaignDealer.persist(self)
 
 class Branch(CampaignDealer):
 
@@ -133,14 +154,14 @@ class Item(CampaignDealer):
     )
     table_name = 'item'
 
-    def __init__(self, arg):
-        CampaignDealer.__init__(self, arg)
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
 
     def persist(self, db_handler):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
-        return CampaignDealer.persist(self, db_handler)
+        return CampaignDealer.persist(self)
 
 
 def find_content(origin_string, key_name):
@@ -167,6 +188,8 @@ def get_info(file_name):
     '''
         从excel获取非门店以外的所有信息
     '''
+    if not os.path.exists(file_name):
+        return None
 
     data = xlrd.open_workbook(file_name)
     table = data.sheets()[0]
@@ -178,11 +201,14 @@ def get_info(file_name):
     # 第三个元素是需要处理为什么格式，''表示不需处理
     # 当前支撑的处理格式为: date, int, float
     # 遍历的时候为了节省资源，是在一次遍历中获取所有数据，获取到一个数据后在剩余cell查找下一个，所以需要保证content中的顺序符合先左后右先上后下的原则
-    contents = (
+    brand_contents = (
         ('brand_name', '商户名称（线上展示）', ''),
         ('company_name', '公司名称（合同签约方）', ''),
         ('city', '所在城市', ''),
         ('brand_intro', '公司或品牌简介', ''),
+    )
+
+    item_contents = (
         ('item_name', '商品名称', ''),
         ('market_price', '市场价格', 'float'),
         ('stock', '每日供应量', ''),
@@ -192,35 +218,72 @@ def get_info(file_name):
     )
 
     result = {}
+    brand = {}
+    item = {}
+    items = []
     # key_index 是内容下标，读取到一个值后移动到下一个需要读取的值
     key_index = 0
+
+    # 获取brand信息
     for i in range(row_count):
         for j in range(col_count):
             cell_value = str(table.cell(i, j).value).strip()
             # 如果含有对应的指示文字
-            if contents[key_index][1] in cell_value:
-                value = find_content(cell_value, contents[key_index][1])
+            if brand_contents[key_index][1] in cell_value:
+                value = find_content(cell_value, brand_contents[key_index][1])
+                brand[brand_contents[key_index][0]] = value
+                if key_index < len(brand_contents) - 1:
+                    key_index = key_index + 1
+
+    brand['account'] = generate_account(brand['brand_name'])
+    result['brand'] = brand
+
+    key_index = 0
+    # 获取商品信息
+    for i in range(row_count):
+        for j in range(col_count):
+            cell_value = str(table.cell(i, j).value).strip()
+            # 如果含有对应的指示文字
+            if item_contents[key_index][1] in cell_value:
+                value = find_content(cell_value, item_contents[key_index][1])
                 # 对日期类型，提取所有数字并加上-， 形成yyyy-mm-dd格式
-                if(contents[key_index][2] == 'date'):
+                if(item_contents[key_index][2] == 'date'):
                     value = '-'.join(re.findall('\d+', value))
                 # 对价格部分， 从字符串中提取整数或浮点数
-                if(contents[key_index][2] == 'float'):
+                if(item_contents[key_index][2] == 'float'):
                     value = float(re.findall('\d*\.\d+|\d+', value)[0])
-                result[contents[key_index][0]] = value
-                if key_index < len(contents) - 1:
+                item[item_contents[key_index][0]] = value
+                if key_index < len(item_contents) - 1:
                     key_index = key_index + 1
+                elif key_index == len(item_contents) - 1:
+                    key_index = 0
+                    items.append(item)
+                    item = {}
+
+    result['items'] = items
     return result
 
 
-def get_branches(file_name, brand_name, city=None):
+def generate_account(brand_name, level=0):
+    zhPattern = re.compile(u'[\u4e00-\u9fa5]+')
+    if brand_name is None or not zhPattern.search(brand_name):
+        raise RuntimeError('No Chinese Character Found: %s', brand_name)
+
+    brand_account = ''
+    if 0 == level:
+        # level 0 的生成规则为拼音首字母
+        for j in range(len(brand_name)):
+            brand_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
+        return brand_account
+
+
+def get_branches(file_name, city=None):
 
     '''
         从excel获取所有门店信息
     '''
 
-    # brand_name是否包含中文
-    zhPattern = re.compile(u'[\u4e00-\u9fa5]+')
-    if not os.path.exists(file_name) or brand_name is None or not zhPattern.search(brand_name):
+    if not os.path.exists(file_name):
         return None
 
     data = xlrd.open_workbook(file_name)
@@ -265,13 +328,7 @@ def get_branches(file_name, brand_name, city=None):
         poi = get_lat_lng_using_address(branch['address'], city)
         branch['lng'] = poi[0]
         branch['lat'] = poi[1]
-        # 开始生成登陆账号、密码
-        # 账号的生成规则为拼音首字母
-        branch_account = ''
-        for j in range(len(brand_name)):
-            branch_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
-        branch['account'] = branch_account + str(offset)
-        branch['password'] = time.strftime('%y%m%d')
+
         # 添加到branches
         branches.append(branch)
         branch_row = branch_row + offset
@@ -335,41 +392,25 @@ def deal_redeem_type(value):
 
 os.environ['TZ'] = 'Asia/Shanghai'
 db_handler = OrangeMySQL('DB_ORANGE')
+file_name = 'abc.xls'
 
-campaign_info = get_info('abc.xlsx')
+try:
+    campaign_info = get_info(file_name)
+    if campaign_info is not None:
+        branch_info = get_branches(file_name)
+        print(campaign_info)
+        print(branch_info)
 
-branch_info = get_branches('abc.xlsx', campaign_info['brand_name'])
-if branch_info is not None:
+        if branch_info is not None:
+            brand = Brand(campaign_info['brand'], db_handler)
+            brand_id = brand.persist(db_handler)
 
-    brand = Brand(campaign_info)
-    brand_id = brand.persist(db_handler)
-    campaign_info['brand_id'] = int(brand_id)
+            for info_item in campaign_info['items']:
+                info_item['brand_id'] = int(brand_id)
+                info_item['brand_intro'] = campaign_info['brand']['brand_intro']
+                item = Item(info_item, db_handler)
+                item_id = item.persist(db_handler)
 
-    item = Item(campaign_info)
-    item_id = item.persist(db_handler)
-
-db_handler.close()
-# get_branches('abc.xls', '仙尚鲜')
-
-# i = OriginInfo()
-# i.set_item_name(brand_id=1)
-# i.set_item_name(brand_id=4)
-# print(i.__dict__)
-# print(i.brand_id)
-
-# data = xlrd.open_workbook('abc.xlsx')
-# table = data.sheets()[0]
-# row_count = table.nrows
-# col_count = table.ncols
-# for i in range(row_count):
-#     for j in range(col_count):
-#         cell_value = str(table.cell(i, j).value).strip()
-#         if '商户名称' in cell_value:
-#             pos = find_first_colon(cell_value)
-#             if pos > 0:
-#                 print(cell_value[pos+1:])
-#             else:
-#                 print(cell_value)
-
-    # print(table.row_values(i))
-    # print('--------------------------')
+    db_handler.close()
+except RuntimeError as e:
+    print(e)
