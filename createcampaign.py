@@ -10,6 +10,67 @@ import xlrd
 import requests
 import pypinyin
 
+from orangejuice.utils.orangemysql import OrangeMySQL
+
+
+class CampaignDealer:
+
+    '''
+        处理所有类数据的基类
+    '''
+
+    # 这个类中的属性，每个属性用一个元组表示
+    # 第一个元素是类内部的属性名
+    # 第二个元素是属性类型，这个属性类型必需是isinstance可以识别的
+    # 第三个元素表示这个属性是否必需，必需为1，否则为0
+    # 第四个元素是数据库的列名
+    # filter应该被每个继承类覆盖
+    class_filter = (
+        ('item1_name', str, 1, 'column1_name'),
+        ('item2_name', int, 0, 'column2_name'),
+    )
+
+    # 数据表名，必需被重载
+    table_name = ''
+
+    def __init__(self, arg):
+        if isinstance(arg, dict):
+            self.set_attrs(arg)
+
+    def set_attrs(self, dict_arg):
+        for (item, item_type, required, col) in self.class_filter:
+            # 如果在属性列表中，赋值
+            if item in dict_arg.keys():
+                if isinstance(dict_arg[item], item_type):
+                    self.__dict__[col] = dict_arg[item]
+                else:
+                    raise RuntimeError('Invalid Type Detected with attrs %s', item)
+            # 如果是必需的属性而没在列表中
+            elif required == 1:
+                raise RuntimeError('Missing Info: %s', item)
+
+    def persist(self, db_handler):
+        if '' == self.table_name:
+            raise RuntimeError('Can Not Get Table Name')
+
+        key_params = ''
+        val_params = ''
+        for key, val in self.__dict__.items():
+            key_params += key + ', '
+            if isinstance(val, str):
+                val_params += "'" + val + "', "
+            else:
+                val_params += str(val) + ', '
+
+        key_params = '({0})'.format(key_params[:-2])
+        val_params = '({0})'.format(val_params[:-2])
+
+        sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
+
+        result = db_handler.execute(sql)
+        db_handler.commit()
+        return result.lastrowid
+
 
 class Campaign(object):
 
@@ -47,19 +108,27 @@ class Branch(object):
         self.arg = arg
 
 
-class Item:
+class Item(CampaignDealer):
 
     """docstring for Item"""
 
-    def __init__(self, **kwargs):
-        self.brand_id = kwargs['brand_id']
-        self.name = kwargs['name']
-        if 'discription' in kwargs:
-            self.description = kwargs['discription']
-        if 'more_info' in kwargs:
-            self.more_info = kwargs['more_info']
-        if 'market_price' in kwargs:
-            self.market_price = kwargs['market_price']
+    class_filter = (
+        ('brand_id', int, 1, 'brand_id'),
+        ('item_name', str, 1, 'name'),
+        ('item_intro', str, 0, 'description'),
+        ('brand_intro', str, 0, 'more_info'),
+        ('market_price', float, 0, 'market_price'),
+    )
+    table_name = 'item'
+
+    def __init__(self, arg):
+        CampaignDealer.__init__(self, arg)
+
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.enabled = 1
+        CampaignDealer.persist(self, db_handler)
 
 
 class OriginInfo:
@@ -133,7 +202,7 @@ def get_info(file_name):
                     value = '-'.join(re.findall('\d+', value))
                 # 对价格部分， 从字符串中提取整数或浮点数
                 if(contents[key_index][2] == 'float'):
-                    value = re.findall('\d*\.\d+|\d+', value)[0]
+                    value = float(re.findall('\d*\.\d+|\d+', value)[0])
                 result[contents[key_index][0]] = value
                 if key_index < len(contents) - 1:
                     key_index = key_index + 1
@@ -199,7 +268,7 @@ def get_branches(file_name, brand_name, city=None):
         for j in range(len(brand_name)):
             branch_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
         branch['account'] = branch_account + str(offset)
-        branch['password'] = time.strftime('%y%m%d',time.localtime(time.time()))
+        branch['password'] = time.strftime('%y%m%d')
         # 添加到branches
         branches.append(branch)
         branch_row = branch_row + offset
@@ -262,6 +331,7 @@ def deal_redeem_type(value):
 
 
 os.environ['TZ'] = 'Asia/Shanghai'
+db_handler = OrangeMySQL('DB_ORANGE')
 
 campaign_info = get_info('abc.xlsx')
 print(campaign_info)
@@ -271,6 +341,11 @@ if branch_info is None:
     print('fail')
 else:
     print(branch_info)
+
+item = Item(campaign_info)
+print(item.__dict__)
+item.persist(db_handler)
+
 # get_branches('abc.xls', '仙尚鲜')
 
 # i = OriginInfo()
