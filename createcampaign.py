@@ -20,10 +20,10 @@ class CampaignDealer:
     '''
 
     # 这个类中的属性，每个属性用一个元组表示
-    # 第一个元素是类内部的属性名
+    # 第一个元素是输入内容的key
     # 第二个元素是属性类型，这个属性类型必需是isinstance可以识别的
     # 第三个元素表示这个属性是否必需，必需为1，否则为0
-    # 第四个元素是数据库的列名
+    # 第四个元素是数据库的列名，属性名也使用这个字段
     # filter应该被每个继承类覆盖
     class_filter = (
         ('item1_name', str, 1, 'column1_name'),
@@ -67,12 +67,13 @@ class CampaignDealer:
 
         sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
 
-        result = db_handler.execute(sql)
+        cursor = db_handler.execute(sql)
         db_handler.commit()
-        return result.lastrowid
+        result = cursor.lastrowid
+        return result
 
 
-class Campaign(object):
+class Campaign(CampaignDealer):
 
     """docstring for Campaign"""
 
@@ -81,7 +82,7 @@ class Campaign(object):
         self.arg = arg
 
 
-class CampaignBranch(object):
+class CampaignBranch(CampaignDealer):
 
     """docstring for CampaignBranch"""
 
@@ -90,16 +91,27 @@ class CampaignBranch(object):
         self.arg = arg
 
 
-class Brand:
+class Brand(CampaignDealer):
 
     """docstring for Brand"""
 
+    class_filter = (
+        ('brand_name', str, 1, 'name'),
+        ('company_name', str, 1, 'company_name'),
+        ('brand_intro', str, 1, 'description'),
+    )
+    table_name = 'brand'
+
     def __init__(self, arg):
-        super(Brand, self).__init__()
-        self.arg = arg
+        CampaignDealer.__init__(self, arg)
 
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.enabled = 1
+        return CampaignDealer.persist(self, db_handler)
 
-class Branch(object):
+class Branch(CampaignDealer):
 
     """docstring for Branch"""
 
@@ -128,16 +140,7 @@ class Item(CampaignDealer):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
-        CampaignDealer.persist(self, db_handler)
-
-
-class OriginInfo:
-
-    """docstring for OriginInfo"""
-
-    def set_attributes(self, **kwargs):
-        for k, v in kwargs.items():
-            self.__dict__[k] = v
+        return CampaignDealer.persist(self, db_handler)
 
 
 def find_content(origin_string, key_name):
@@ -177,7 +180,7 @@ def get_info(file_name):
     # 遍历的时候为了节省资源，是在一次遍历中获取所有数据，获取到一个数据后在剩余cell查找下一个，所以需要保证content中的顺序符合先左后右先上后下的原则
     contents = (
         ('brand_name', '商户名称（线上展示）', ''),
-        ('campany_name', '公司名称（合同签约方）', ''),
+        ('company_name', '公司名称（合同签约方）', ''),
         ('city', '所在城市', ''),
         ('brand_intro', '公司或品牌简介', ''),
         ('item_name', '商品名称', ''),
@@ -323,29 +326,29 @@ def deal_redeem_type(value):
             result += 1
         if value.find('电话') != -1:
             result += 2
-        if value.find('手工') != -1:
+        if value.find('手工') != -1 or value.find('纸质') != -1:
             result += 4
         return result
     else:
-        return ''
+        return 0
 
 
 os.environ['TZ'] = 'Asia/Shanghai'
 db_handler = OrangeMySQL('DB_ORANGE')
 
 campaign_info = get_info('abc.xlsx')
-print(campaign_info)
 
 branch_info = get_branches('abc.xlsx', campaign_info['brand_name'])
-if branch_info is None:
-    print('fail')
-else:
-    print(branch_info)
+if branch_info is not None:
 
-item = Item(campaign_info)
-print(item.__dict__)
-item.persist(db_handler)
+    brand = Brand(campaign_info)
+    brand_id = brand.persist(db_handler)
+    campaign_info['brand_id'] = int(brand_id)
 
+    item = Item(campaign_info)
+    item_id = item.persist(db_handler)
+
+db_handler.close()
 # get_branches('abc.xls', '仙尚鲜')
 
 # i = OriginInfo()
