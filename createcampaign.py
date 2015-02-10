@@ -90,18 +90,73 @@ class Campaign(CampaignDealer):
 
     """docstring for Campaign"""
 
-    def __init__(self, arg):
-        super(Campaign, self).__init__()
-        self.arg = arg
+    class_filter = (
+        ('brand_id', int, 1, 'brand_id'),
+        ('item_id', int, 1, 'item_id'),
+        ('start_time', str, 1, 'start_time'),
+        ('end_time', int, 1, 'end_time'),
+        ('market_price', float, 1, 'market_price'),
+        ('market_price', float, 1, 'unlock_price'),
+        ('market_price', float, 1, 'current_price'),
+        ('stock', str, 1, 'stock'),
+    )
+    table_name = 'campaign'
+
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
+
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.enabled = 1
+        self.type = 1
+        self.is_new = 1
+        self.is_all_branch = 0
+        self.floor_price = 1
+        self.bargain_range = 0.2
+        self.start_price = self.market_price * 0.8
+        self.redeem_period = 7
+        return CampaignDealer.persist(self)
 
 
 class CampaignBranch(CampaignDealer):
 
     """docstring for CampaignBranch"""
 
-    def __init__(self, arg):
-        super(CampaignBranch, self).__init__()
-        self.arg = arg
+    class_filter = (
+        ('campaign_id', int, 1, 'campaign_id'),
+        ('brand_id', int, 1, 'brand_id'),
+        ('item_id', int, 1, 'item_id'),
+        ('start_time', str, 1, 'start_time'),
+        ('end_time', int, 1, 'end_time'),
+        ('market_price', float, 1, 'market_price'),
+        ('market_price', float, 1, 'unlock_price'),
+        ('market_price', float, 1, 'current_price'),
+        ('stock', str, 1, 'stock'),
+        ('stock', str, 1, 'left'),
+    )
+    table_name = 'campaignbranch'
+
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
+
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.enabled = 1
+        self.type = 1
+        self.is_new = 1
+        self.is_all_branch = 0
+        self.floor_price = 1
+        self.bargain_range = 0.2
+        self.start_price = self.market_price * 0.8
+        self.redeem_period = 7
+        self.left = 0
+        self.redeem_period = 7
+        self.freeze_period = 7
+        self.online = 0
+        self.weight = 0
+        return CampaignDealer.persist(self)
 
 
 class Brand(CampaignDealer):
@@ -136,13 +191,51 @@ class Brand(CampaignDealer):
         self.enabled = 1
         return CampaignDealer.persist(self)
 
+
 class Branch(CampaignDealer):
 
     """docstring for Branch"""
 
-    def __init__(self, arg):
-        super(Branch, self).__init__()
-        self.arg = arg
+    class_filter = (
+        ('brand_id', int, 1, 'brand_id'),
+        ('branch_name', str, 1, 'name'),
+        ('brand_intro', str, 1, 'description'),
+        ('redeem_type', str, 1, 'redeem_type'),
+        ('address', str, 1, 'address'),
+        ('phone', str, 0, 'tel'),
+        ('work_hour', str, 0, 'redeem_time'),
+    )
+    table_name = 'branch'
+
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
+
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.enabled = 1
+        self.redeem_code_source = 1
+        self.freeze_period = 7
+        return CampaignDealer.persist(self)
+
+
+class Branch_contacter(CampaignDealer):
+    """docstring for Branch_contacter"""
+
+    class_filter = (
+        ('brand_id', int, 0, 'brand_id'),
+        ('dd', str, 1, 'tel'),
+    )
+    table_name = 'branch'
+
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
+
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.enabled = 1
+        return CampaignDealer.persist(self)
 
 
 class Item(CampaignDealer):
