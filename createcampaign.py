@@ -6,6 +6,8 @@ import re
 import time
 import os
 import sys
+import math
+from random import randint
 
 import xlrd
 import requests
@@ -80,10 +82,10 @@ class CampaignDealer:
 
         sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
 
-        cursor = self.db_handler.execute(sql)
-        self.db_handler.commit()
-        result = cursor.lastrowid
-        return result
+        # cursor = self.db_handler.execute(sql)
+        # self.db_handler.commit()
+        # result = cursor.lastrowid
+        # return result
 
 
 class Campaign(CampaignDealer):
@@ -94,16 +96,27 @@ class Campaign(CampaignDealer):
         ('brand_id', int, 1, 'brand_id'),
         ('item_id', int, 1, 'item_id'),
         ('start_time', str, 1, 'start_time'),
-        ('end_time', int, 1, 'end_time'),
+        ('end_time', str, 1, 'end_time'),
         ('market_price', float, 1, 'market_price'),
-        ('market_price', float, 1, 'unlock_price'),
-        ('market_price', float, 1, 'current_price'),
         ('stock', str, 1, 'stock'),
     )
     table_name = 'campaign'
 
     def __init__(self, arg, db_handler):
         CampaignDealer.__init__(self, arg, db_handler)
+
+    def exists_recorder(self):
+        sql = '''
+        SELECT  id
+        FROM    {table_name}
+        WHERE   item_id = {item_id}
+        AND     brand_id = {brand_id}
+        '''.format(table_name=self.table_name, item_id=self.item_id, brand_id=self.brand_id)
+        campaign = self.db_handler.execute(sql).fetchall()
+        if len(campaign) == 0:
+            return None
+        else:
+            return campaign
 
     def persist(self, db_handler):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -113,8 +126,10 @@ class Campaign(CampaignDealer):
         self.is_new = 1
         self.is_all_branch = 0
         self.floor_price = 1
-        self.bargain_range = 0.2
-        self.start_price = self.market_price * 0.8
+        self.start_price = math.floor(self.market_price * 0.8)
+        self.current_price = self.start_price
+        self.unlock_price = self.start_price
+        self.bargain_range = round((self.start_price-self.floor_price)/70, 1)
         self.redeem_period = 7
         return CampaignDealer.persist(self)
 
@@ -125,15 +140,10 @@ class CampaignBranch(CampaignDealer):
 
     class_filter = (
         ('campaign_id', int, 1, 'campaign_id'),
-        ('brand_id', int, 1, 'brand_id'),
-        ('item_id', int, 1, 'item_id'),
         ('start_time', str, 1, 'start_time'),
-        ('end_time', int, 1, 'end_time'),
+        ('end_time', str, 1, 'end_time'),
         ('market_price', float, 1, 'market_price'),
-        ('market_price', float, 1, 'unlock_price'),
-        ('market_price', float, 1, 'current_price'),
         ('stock', str, 1, 'stock'),
-        ('stock', str, 1, 'left'),
     )
     table_name = 'campaignbranch'
 
@@ -143,18 +153,19 @@ class CampaignBranch(CampaignDealer):
     def persist(self, db_handler):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
-        self.enabled = 1
+        self.enabled = 0
         self.type = 1
         self.is_new = 1
         self.is_all_branch = 0
         self.floor_price = 1
-        self.bargain_range = 0.2
-        self.start_price = self.market_price * 0.8
+        self.start_price = math.floor(self.market_price * 0.8)
+        self.current_price = self.start_price
+        self.unlock_price = self.start_price
+        self.bargain_range = round((self.start_price-self.floor_price)/70, 1)
         self.redeem_period = 7
-        self.left = 0
-        self.redeem_period = 7
+        self.left = self.stock
         self.freeze_period = 7
-        self.online = 0
+        self.online = 1
         self.weight = 0
         return CampaignDealer.persist(self)
 
@@ -178,6 +189,7 @@ class Brand(CampaignDealer):
         SELECT  id, name
         FROM    {table_name}
         WHERE   name LIKE '%{brand_name}%'
+        ;
         '''.format(table_name=self.table_name, brand_name=self.name)
         brand = self.db_handler.execute(sql).fetchall()
         if len(brand) == 0:
@@ -198,9 +210,10 @@ class Branch(CampaignDealer):
 
     class_filter = (
         ('brand_id', int, 1, 'brand_id'),
+        ('city', int, 1, 'zone_id'),
         ('branch_name', str, 1, 'name'),
         ('brand_intro', str, 1, 'description'),
-        ('redeem_type', str, 1, 'redeem_type'),
+        ('redeem_type', int, 1, 'redeem_type'),
         ('address', str, 1, 'address'),
         ('phone', str, 0, 'tel'),
         ('work_hour', str, 0, 'redeem_time'),
@@ -219,12 +232,12 @@ class Branch(CampaignDealer):
         return CampaignDealer.persist(self)
 
 
-class Branch_contacter(CampaignDealer):
+class BranchContacter(CampaignDealer):
     """docstring for Branch_contacter"""
 
     class_filter = (
-        ('brand_id', int, 0, 'brand_id'),
-        ('dd', str, 1, 'tel'),
+        ('brand_id', int, 0, 'branch_id'),
+        ('phone', str, 1, 'tel'),
     )
     table_name = 'branch'
 
@@ -235,6 +248,7 @@ class Branch_contacter(CampaignDealer):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
+        self.is_binding = 1
         return CampaignDealer.persist(self)
 
 
@@ -301,7 +315,7 @@ def get_info(file_name):
     brand_contents = (
         ('brand_name', '商户名称（线上展示）', ''),
         ('company_name', '公司名称（合同签约方）', ''),
-        ('city', '所在城市', ''),
+        ('city', '所在城市', 'int'),
         ('brand_intro', '公司或品牌简介', ''),
     )
 
@@ -313,6 +327,21 @@ def get_info(file_name):
         ('end_time', '下线日期', 'date'),
         ('item_intro', '商品详细描述（特色/成分/口感/功效等）', ''),
     )
+
+    city = {
+        '北京': 10,
+        '上海': 21,
+        '杭州': 571,
+        '深圳': 755,
+        '沈阳': 2101,
+        '大连': 2102,
+        '大庆': 2306,
+        '南京': 3201,
+        '苏州': 3205,
+        '济南': 3701,
+        '武汉': 4201,
+        '广州': 4401,
+    }
 
     result = {}
     brand = {}
@@ -332,6 +361,10 @@ def get_info(file_name):
                 if key_index < len(brand_contents) - 1:
                     key_index = key_index + 1
 
+    if brand['city'] in city.keys():
+        brand['city'] = city[brand['city']]
+    else:
+        raise RuntimeError('City Not Found: %s' % brand['city'])
     brand['account'] = generate_account(brand['brand_name'])
     result['brand'] = brand
 
@@ -346,6 +379,7 @@ def get_info(file_name):
                 # 对日期类型，提取所有数字并加上-， 形成yyyy-mm-dd格式
                 if(item_contents[key_index][2] == 'date'):
                     value = '-'.join(re.findall('\d+', value))
+                    value += ' 02:00:00'
                 # 对价格部分， 从字符串中提取整数或浮点数
                 if(item_contents[key_index][2] == 'float'):
                     value = float(re.findall('\d*\.\d+|\d+', value)[0])
@@ -495,18 +529,55 @@ try:
     campaign_info = get_info(file_name)
     if campaign_info is not None:
         branch_info = get_branches(file_name)
-        print(campaign_info)
-        print(branch_info)
+        # print(campaign_info)
+        # print(branch_info)
 
         if branch_info is not None:
             brand = Brand(campaign_info['brand'], db_handler)
             brand_id = brand.persist(db_handler)
+            brand_id = 1
+            branches = []
 
+            # 开始处理 branch 相关信息
+            for branch_item in branch_info:
+                branch_item['brand_id'] = int(brand_id)
+                branch_item['city'] = campaign_info['brand']['city']
+                branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
+                branch = Branch(branch_item, db_handler)
+                branch_id = branch.persist(db_handler)
+                branch_id = randint(0,1000)
+                branch_item['branch_id'] = branch_id
+                branches.append(branch_id)
+                print(branch.__dict__)
+                print(branches)
+
+                # 处理 branch_contacter
+                branch_contacter = BranchContacter(branch_item, db_handler)
+                branch_contacter.persist(db_handler)
+                print(branch_contacter.__dict__)
+
+
+            print('=' * 100)
             for info_item in campaign_info['items']:
                 info_item['brand_id'] = int(brand_id)
                 info_item['brand_intro'] = campaign_info['brand']['brand_intro']
                 item = Item(info_item, db_handler)
                 item_id = item.persist(db_handler)
+                item_id = randint(1000, 2000)
+                info_item['item_id'] = item_id
+                print(item.__dict__)
+
+                campaign = Campaign(info_item, db_handler)
+                campaign_id = campaign.persist(db_handler)
+                campaign_id = randint(2000, 3000)
+                info_item['campaign_id'] = campaign_id
+                print(campaign.__dict__)
+
+                campaign_branch = CampaignBranch(info_item, db_handler)
+                campaignbranch_id = campaign_branch.persist(db_handler)
+                campaignbranch_id = randint(3000, 4000)
+                info_item['campaignbranch_id'] = campaignbranch_id
+                print(campaign_branch.__dict__)
 
     db_handler.close()
 except RuntimeError as e:
