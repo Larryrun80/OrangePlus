@@ -14,6 +14,7 @@ import requests
 import pypinyin
 
 from orangejuice.utils.orangemysql import OrangeMySQL
+from orangejuice.utils.orangelog import OrangeLog
 
 
 class CampaignDealer:
@@ -36,10 +37,12 @@ class CampaignDealer:
     # 数据表名，必需被重载
     table_name = ''
 
-    def __init__(self, arg, db_handler):
+    # 初始化，从传入的参数动态创建属性
+    def __init__(self, arg, db_handler, logger):
         if isinstance(arg, dict):
             self.set_attrs(arg)
             self.db_handler = db_handler
+            self.logger = logger
 
     def set_attrs(self, dict_arg):
         for (item, item_type, required, col) in self.class_filter:
@@ -53,13 +56,16 @@ class CampaignDealer:
             elif required == 1:
                 raise RuntimeError('Missing Info: %s' % item)
 
+    # 检测是否已存在记录，用于避免插入数据冲突，如果需要避免重复，请重载
     def exists_recorder(self):
         return None
 
+    # 将当前对象保存到对应的数据库中
     def persist(self):
         if '' == self.table_name:
             raise RuntimeError('Can Not Get Table Name')
 
+        # 检测是否已存在记录
         recorders = self.exists_recorder()
         if recorders is not None:
             ids = ''
@@ -67,6 +73,7 @@ class CampaignDealer:
                 ids += str(record[0]) + ' '
             raise RuntimeError('%s EXISTS! id: %s' % (self.table_name, ids))
 
+        # 构造列名和对应的值
         key_params = ''
         val_params = ''
         for key, val in self.__dict__.items():
@@ -80,11 +87,12 @@ class CampaignDealer:
         key_params = '({0})'.format(key_params[:-2])
         val_params = '({0})'.format(val_params[:-2])
 
+        # 生成sql语句并执行
         sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
 
-        print('='*10 + self.table_name + '='*10)
-        print(sql)
-        # print(self.__dict__)
+        self.logger.info('='*10 + self.table_name + '='*10)
+        self.logger.info(sql)
+
         cursor = self.db_handler.execute(sql)
         self.db_handler.commit()
         result = cursor.lastrowid
@@ -109,6 +117,7 @@ class Campaign(CampaignDealer):
         CampaignDealer.__init__(self, arg, db_handler)
 
     def exists_recorder(self):
+        # 需要判断在数据库中， item_id + brand_id 是唯一的
         sql = '''
         SELECT  id
         FROM    {table_name}
@@ -338,7 +347,7 @@ class User(CampaignDealer):
 
 def find_content(origin_string, key_name):
     '''
-        从一个cell中过滤掉提示文字，或许需要的内容
+        从一个cell中过滤掉提示文字，获得需要的内容
     '''
 
     # 本来可以用string.punctuation, 但牵涉到全角字符，还是自定义一个
@@ -402,10 +411,11 @@ def get_info(file_name):
         '广州': 4401,
     }
 
-    result = {}
-    brand = {}
-    item = {}
-    items = []
+    result = {}     # 存储返回结果
+    brand = {}      # 存储解析到的品牌信息
+    item = {}       # 存储解析到的单个商品信息
+    items = []      # 存储解析到的所有商品信息
+
     # key_index 是内容下标，读取到一个值后移动到下一个需要读取的值
     key_index = 0
 
@@ -419,11 +429,12 @@ def get_info(file_name):
                 brand[brand_contents[key_index][0]] = value
                 if key_index < len(brand_contents) - 1:
                     key_index = key_index + 1
-
+    # 将city转化为id
     if brand['city'] in city.keys():
         brand['city'] = city[brand['city']]
     else:
         raise RuntimeError('City Not Found: %s' % brand['city'])
+    # 创建brand账号
     brand['account'] = generate_account(brand['brand_name'])
     result['brand'] = brand
 
@@ -464,6 +475,9 @@ def generate_account(brand_name, pattern=0):
         # pattern 0 的生成规则为拼音首字母
         for j in range(len(brand_name)):
             brand_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
+    if is_username_exists(brand_account):
+        raise RuntimeError('Brand User Name Exist: %s', brand_account)
+    else:
         return brand_account
 
 
@@ -599,7 +613,7 @@ def deal_redeem_type(value):
         return 0
 
 
-def create_relation(arg, db_handler):
+def create_relation(arg, db_handler, logger):
     '''
         建立关联表
         arg传入一个dict，格式为：
@@ -611,30 +625,32 @@ def create_relation(arg, db_handler):
     if isinstance(arg, dict) and len(arg.keys())==2 and 'table_name' in arg.keys() and 'columns' in arg.keys():
         try:
             sql = 'INSERT INTO  {table_name} ({col1}, {col2}) VALUES ({value1}, {value2});'.format(table_name=arg['table_name'], col1=arg['columns'][0][0], col2=arg['columns'][1][0], value1=arg['columns'][0][1], value2=arg['columns'][1][1])
-            print(sql)
+            logger.info(sql)
             db_handler.execute(sql)
             db_handler.commit()
         except RuntimeError as e:
-            print(e)
+            logger.info(e)
     else:
         raise RuntimeError('Create Relation Failed: Pls Check Param')
 
 
 os.environ['TZ'] = 'Asia/Shanghai'
 db_handler = OrangeMySQL('DB_ORANGE')
+logger = OrangeLog('LOG_ORANGE', 'CREATER').getLogger()
 file_name = 'abc.xls'
 
 try:
     campaign_info = get_info(file_name)
     if campaign_info is not None:
         branch_info = get_branches(file_name)
+        logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
         print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
 
         if branch_info is not None:
-            brand = Brand(campaign_info['brand'], db_handler)
-            brand_id = brand.persist(db_handler)
-            brand_user = User(campaign_info['brand'], db_handler)
-            brand_user_id = brand_user.persist(db_handler)
+            brand = Brand(campaign_info['brand'], db_handler, logger)
+            brand_id = brand.persist()
+            brand_user = User(campaign_info['brand'], db_handler, logger)
+            brand_user_id = brand_user.persist()
             # 关联brand user
             brand_arg = {
                 'table_name': 'brand_users',
@@ -643,7 +659,7 @@ try:
                     ('user_id', brand_user_id),
                 )
             }
-            create_relation(brand_arg, db_handler)
+            create_relation(brand_arg, db_handler, logger)
 
             branches = []
 
@@ -654,20 +670,20 @@ try:
                 branch_item['city'] = campaign_info['brand']['city']
                 branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
                 branch_item['account'] = get_branch_account(campaign_info['brand']['account'], db_handler, branch_index)
-                branch = Branch(branch_item, db_handler)
-                branch_id = branch.persist(db_handler)
+                branch = Branch(branch_item, db_handler, logger)
+                branch_id = branch.persist()
                 branch_item['branch_id'] = branch_id
                 branches.append(branch_id)
                 branch_index += 1
 
                 # 处理 branch_contacter
                 if branch_item['redeem_type'] in (2, 3, 7):
-                    branch_contacter = BranchContacter(branch_item, db_handler)
-                    branch_contacter.persist(db_handler)
+                    branch_contacter = BranchContacter(branch_item, db_handler, logger)
+                    branch_contacter.persist()
 
                 # 处理 branch_user
-                branch_user = User(branch_item, db_handler)
-                branch_user_id = branch_user.persist(db_handler)
+                branch_user = User(branch_item, db_handler, logger)
+                branch_user_id = branch_user.persist()
                 # 关联branch user
                 branch_arg = {
                     'table_name': 'branch_users',
@@ -676,22 +692,21 @@ try:
                         ('user_id', branch_user_id),
                     )
                 }
-                create_relation(branch_arg, db_handler)
+                create_relation(branch_arg, db_handler, logger)
 
-            print('=' * 100)
             for info_item in campaign_info['items']:
                 info_item['brand_id'] = int(brand_id)
                 info_item['brand_intro'] = campaign_info['brand']['brand_intro']
-                item = Item(info_item, db_handler)
-                item_id = item.persist(db_handler)
+                item = Item(info_item, db_handler, logger)
+                item_id = item.persist()
                 info_item['item_id'] = item_id
 
-                campaign = Campaign(info_item, db_handler)
-                campaign_id = campaign.persist(db_handler)
+                campaign = Campaign(info_item, db_handler, logger)
+                campaign_id = campaign.persist()
                 info_item['campaign_id'] = campaign_id
 
-                campaign_branch = CampaignBranch(info_item, db_handler)
-                campaignbranch_id = campaign_branch.persist(db_handler)
+                campaign_branch = CampaignBranch(info_item, db_handler, logger)
+                campaignbranch_id = campaign_branch.persist()
                 info_item['campaignbranch_id'] = campaignbranch_id
 
                 # 关联campaignbranch 和 branch
@@ -703,8 +718,8 @@ try:
                             ('branch_id', branch_id),
                         )
                     }
-                    create_relation(cbb_arg, db_handler)
+                    create_relation(cbb_arg, db_handler, logger)
 
     db_handler.close()
-except RuntimeError as e:
-    print(e)
+except:
+    logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
