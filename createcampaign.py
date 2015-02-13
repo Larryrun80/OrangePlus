@@ -8,6 +8,7 @@ import os
 import string
 import math
 import random
+import sys
 
 import xlrd
 import requests
@@ -397,9 +398,11 @@ def get_info(file_name):
                 if key_index < len(brand_contents) - 1:
                     key_index = key_index + 1
     # 将city转化为id
-    brand['city'] = get_city_id(brand['city'])
-    if brand['city'] == 0:
+    tmp_city = get_city_id(brand['city'])
+    if tmp_city == 0:
         raise RuntimeError('City Not Found: %s' % brand['city'])
+    else:
+        brand['city'] = tmp_city
 
     # 创建brand账号
     brand['account'] = generate_account(brand['brand_name'])
