@@ -557,10 +557,8 @@ def get_branches(file_name, city=None):
             break
 
     branches = []  # 用于存储处理好的门店
-    offset = 0  # offset 在创建门店账号时提供后缀
     # 如果某一行最后一列的值为空，代表着这行不是门店信息了
     while table.cell(branch_row, col_count-1).value != '':
-        offset = offset + 1
         branch = {}
         # 遍历存储某个门店的全部信息
         for i in range(len(branch_format)):
@@ -577,7 +575,7 @@ def get_branches(file_name, city=None):
 
         # 添加到branches
         branches.append(branch)
-        branch_row = branch_row + offset
+        branch_row = branch_row + 1
     return branches
 
 
