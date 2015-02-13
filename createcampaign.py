@@ -345,24 +345,6 @@ class User(CampaignDealer):
         return CampaignDealer.persist(self)
 
 
-def find_content(origin_string, key_name):
-    '''
-        从一个cell中过滤掉提示文字，获得需要的内容
-    '''
-
-    # 本来可以用string.punctuation, 但牵涉到全角字符，还是自定义一个
-    punctuation = [':', '：', ' ']
-    # 找到提示位置的结束位置
-    pos = origin_string.find(key_name)
-    if -1 != pos:
-        pos = pos + len(key_name)
-    # 过滤掉可能的异常字符
-    while(origin_string[pos] in punctuation):
-        pos = pos + 1
-
-    return origin_string[pos:]
-
-
 def get_info(file_name):
     '''
         从excel获取非门店以外的所有信息
@@ -396,21 +378,6 @@ def get_info(file_name):
         ('item_intro', '商品详细描述（特色/成分/口感/功效等）', ''),
     )
 
-    city = {
-        '北京': 10,
-        '上海': 21,
-        '杭州': 571,
-        '深圳': 755,
-        '沈阳': 2101,
-        '大连': 2102,
-        '大庆': 2306,
-        '南京': 3201,
-        '苏州': 3205,
-        '济南': 3701,
-        '武汉': 4201,
-        '广州': 4401,
-    }
-
     result = {}     # 存储返回结果
     brand = {}      # 存储解析到的品牌信息
     item = {}       # 存储解析到的单个商品信息
@@ -430,10 +397,10 @@ def get_info(file_name):
                 if key_index < len(brand_contents) - 1:
                     key_index = key_index + 1
     # 将city转化为id
-    if brand['city'] in city.keys():
-        brand['city'] = city[brand['city']]
-    else:
+    brand['city'] = get_city_id(brand['city'])
+    if brand['city'] == 0:
         raise RuntimeError('City Not Found: %s' % brand['city'])
+
     # 创建brand账号
     brand['account'] = generate_account(brand['brand_name'])
     result['brand'] = brand
@@ -456,6 +423,7 @@ def get_info(file_name):
                 item[item_contents[key_index][0]] = value
                 if key_index < len(item_contents) - 1:
                     key_index = key_index + 1
+                # 如果一个商品处理完了，新建一个商品
                 elif key_index == len(item_contents) - 1:
                     key_index = 0
                     items.append(item)
@@ -463,6 +431,51 @@ def get_info(file_name):
 
     result['items'] = items
     return result
+
+
+def find_content(origin_string, key_name):
+    '''
+        从一个cell中过滤掉提示文字，获得需要的内容
+    '''
+
+    # 本来可以用string.punctuation, 但牵涉到全角字符，还是自定义一个
+    punctuation = [':', '：', ' ']
+    # 找到提示位置的结束位置
+    pos = origin_string.find(key_name)
+    if -1 != pos:
+        pos = pos + len(key_name)
+    # 过滤掉可能的异常字符
+    while(origin_string[pos] in punctuation):
+        pos = pos + 1
+
+    return origin_string[pos:]
+
+
+def get_city_id(city_name):
+    '''
+        将城市名转化为城市id
+    '''
+    cities = {
+        '北京': 10,
+        '上海': 21,
+        '杭州': 571,
+        '深圳': 755,
+        '沈阳': 2101,
+        '大连': 2102,
+        '大庆': 2306,
+        '南京': 3201,
+        '苏州': 3205,
+        '济南': 3701,
+        '武汉': 4201,
+        '广州': 4401,
+    }
+
+    city_id = 0
+    for city in cities.keys():
+        if city_name.find(city) > -1:
+            city_id = cities[city]
+            break
+    return city_id
 
 
 def generate_account(brand_name, pattern=0):
