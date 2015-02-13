@@ -52,7 +52,8 @@ class CampaignDealer:
                 if isinstance(dict_arg[item], item_type):
                     self.__dict__[col] = dict_arg[item]
                 else:
-                    raise RuntimeError('Invalid Type Detected with attrs %s' % item)
+                    raise RuntimeError(
+                        'Invalid Type Detected with attrs %s' % item)
             # 如果是必需的属性而没在列表中
             elif required == 1:
                 raise RuntimeError('Missing Info: %s' % item)
@@ -78,7 +79,7 @@ class CampaignDealer:
         key_params = ''
         val_params = ''
         for key, val in self.__dict__.items():
-            if 'db_handler' != key:
+            if 'db_handler' != key and 'logger' != key:
                 key_params += '`' + key + '`, '
                 if isinstance(val, str):
                     val_params += "'" + val + "', "
@@ -89,8 +90,9 @@ class CampaignDealer:
         val_params = '({0})'.format(val_params[:-2])
 
         # 生成sql语句并执行
-        sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
-
+        sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(
+            table_name=self.table_name, columns=key_params, vals=val_params)
+        print(sql)
         self.logger.info('='*10 + self.table_name + '='*10)
         self.logger.info(sql)
 
@@ -114,8 +116,8 @@ class Campaign(CampaignDealer):
     )
     table_name = 'campaign'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
     def exists_recorder(self):
         # 需要判断在数据库中， item_id + brand_id 是唯一的
@@ -124,14 +126,17 @@ class Campaign(CampaignDealer):
         FROM    {table_name}
         WHERE   item_id = {item_id}
         AND     brand_id = {brand_id}
-        '''.format(table_name=self.table_name, item_id=self.item_id, brand_id=self.brand_id)
+        '''.format(
+            table_name=self.table_name,
+            item_id=self.item_id,
+            brand_id=self.brand_id)
         campaign = self.db_handler.execute(sql).fetchall()
         if len(campaign) == 0:
             return None
         else:
             return campaign
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
@@ -160,10 +165,10 @@ class CampaignBranch(CampaignDealer):
     )
     table_name = 'campaign_branch'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 0
@@ -194,8 +199,8 @@ class Brand(CampaignDealer):
     )
     table_name = 'brand'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
     def exists_recorder(self):
         sql = '''
@@ -210,7 +215,7 @@ class Brand(CampaignDealer):
         else:
             return brand
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
@@ -235,10 +240,10 @@ class Branch(CampaignDealer):
     )
     table_name = 'branch'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
@@ -257,8 +262,8 @@ class BranchContacter(CampaignDealer):
     )
     table_name = 'branch_contacter'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
     def exists_recorder(self):
         sql = '''
@@ -266,14 +271,14 @@ class BranchContacter(CampaignDealer):
         FROM    {table_name}
         WHERE   tel = '{tel}'
         ;
-        '''.format(table_name=self.table_name, tel=self.phone)
+        '''.format(table_name=self.table_name, tel=self.tel)
         bc = self.db_handler.execute(sql).fetchall()
         if len(bc) == 0:
             return None
         else:
             return bc
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
@@ -294,10 +299,10 @@ class Item(CampaignDealer):
     )
     table_name = 'item'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.enabled = 1
@@ -313,8 +318,8 @@ class User(CampaignDealer):
     )
     table_name = 'user'
 
-    def __init__(self, arg, db_handler):
-        CampaignDealer.__init__(self, arg, db_handler)
+    def __init__(self, arg, db_handler, logger):
+        CampaignDealer.__init__(self, arg, db_handler, logger)
 
     def exists_recorder(self):
         sql = '''
@@ -329,7 +334,7 @@ class User(CampaignDealer):
         else:
             return user
 
-    def persist(self, db_handler):
+    def persist(self):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
         self.password = time.strftime('%y%m%d')
@@ -490,8 +495,9 @@ def generate_account(brand_name, pattern=0):
     if 0 == pattern:
         # pattern 0 的生成规则为拼音首字母
         for j in range(len(brand_name)):
-            brand_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
-    if is_username_exists(brand_account):
+            brand_account += pypinyin.pinyin(
+                brand_name[j], pypinyin.FIRST_LETTER)[0][0]
+    if is_username_exists(brand_account, db_handler):
         raise RuntimeError('Brand User Name Exist: %s', brand_account)
     else:
         return brand_account
@@ -610,7 +616,9 @@ def deal_phone_number(value):
         value = ''.join([i for i in value if i.isdigit()])
 
     # 如果不是手机号，且不是0开头， 加0
-    if len(value) > 0 and (len(value) != 11 or (len(value) == 11 and value[0] != '1')) and value[0] != '0':
+    if len(value) > 0 and (
+        len(value) != 11 or (
+            len(value) == 11 and value[0] != '1')) and value[0] != '0':
         value = '0' + value
     return value
 
@@ -638,7 +646,7 @@ def create_relation(arg, db_handler, logger):
             'columns': (('column_name', 'value'), ('column_name', 'value'))
         }
     '''
-    if isinstance(arg, dict) and len(arg.keys())==2 and 'table_name' in arg.keys() and 'columns' in arg.keys():
+    if isinstance(arg, dict) and len(arg.keys()) == 2 and 'table_name' in arg.keys() and 'columns' in arg.keys():
         try:
             sql = 'INSERT INTO  {table_name} ({col1}, {col2}) VALUES ({value1}, {value2});'.format(table_name=arg['table_name'], col1=arg['columns'][0][0], col2=arg['columns'][1][0], value1=arg['columns'][0][1], value2=arg['columns'][1][1])
             logger.info(sql)
@@ -653,89 +661,91 @@ def create_relation(arg, db_handler, logger):
 os.environ['TZ'] = 'Asia/Shanghai'
 db_handler = OrangeMySQL('DB_ORANGE')
 logger = OrangeLog('LOG_ORANGE', 'CREATER').getLogger()
-file_name = 'abc.xls'
+file_name = '（熊管家）3月1号（电话）上线申请表.xlsx'
 
-try:
-    campaign_info = get_info(file_name)
-    if campaign_info is not None:
-        branch_info = get_branches(file_name)
-        logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
-        print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+# try:
+campaign_info = get_info(file_name)
+if campaign_info is not None:
+    branch_info = get_branches(file_name)
+    logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+    print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
 
-        if branch_info is not None:
-            brand = Brand(campaign_info['brand'], db_handler, logger)
-            brand_id = brand.persist()
-            brand_user = User(campaign_info['brand'], db_handler, logger)
-            brand_user_id = brand_user.persist()
-            # 关联brand user
-            brand_arg = {
-                'table_name': 'brand_users',
+    if branch_info is not None:
+        brand = Brand(campaign_info['brand'], db_handler, logger)
+        brand_id = brand.persist()
+        brand_user = User(campaign_info['brand'], db_handler, logger)
+        brand_user_id = brand_user.persist()
+        # 关联brand user
+        brand_arg = {
+            'table_name': 'brand_users',
+            'columns': (
+                ('brand_id', brand_id),
+                ('user_id', brand_user_id),
+            )
+        }
+        create_relation(brand_arg, db_handler, logger)
+
+        branches = []
+
+        # 开始处理 branch 相关信息
+        branch_index = 0
+        for branch_item in branch_info:
+            branch_item['brand_id'] = int(brand_id)
+            branch_item['city'] = campaign_info['brand']['city']
+            branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
+            branch_item['account'] = get_branch_account(
+                campaign_info['brand']['account'], db_handler, branch_index)
+            branch = Branch(branch_item, db_handler, logger)
+            branch_id = branch.persist()
+            branch_item['branch_id'] = branch_id
+            branches.append(branch_id)
+            branch_index += 1
+
+            # 处理 branch_contacter
+            if branch_item['redeem_type'] in (2, 3, 7):
+                branch_contacter = BranchContacter(
+                    branch_item, db_handler, logger)
+                branch_contacter.persist()
+
+            # 处理 branch_user
+            branch_user = User(branch_item, db_handler, logger)
+            branch_user_id = branch_user.persist()
+            # 关联branch user
+            branch_arg = {
+                'table_name': 'branch_users',
                 'columns': (
-                    ('brand_id', brand_id),
-                    ('user_id', brand_user_id),
+                    ('branch_id', branch_id),
+                    ('user_id', branch_user_id),
                 )
             }
-            create_relation(brand_arg, db_handler, logger)
+            create_relation(branch_arg, db_handler, logger)
 
-            branches = []
+        for info_item in campaign_info['items']:
+            info_item['brand_id'] = int(brand_id)
+            info_item['brand_intro'] = campaign_info['brand']['brand_intro']
+            item = Item(info_item, db_handler, logger)
+            item_id = item.persist()
+            info_item['item_id'] = item_id
 
-            # 开始处理 branch 相关信息
-            branch_index = 0
-            for branch_item in branch_info:
-                branch_item['brand_id'] = int(brand_id)
-                branch_item['city'] = campaign_info['brand']['city']
-                branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
-                branch_item['account'] = get_branch_account(campaign_info['brand']['account'], db_handler, branch_index)
-                branch = Branch(branch_item, db_handler, logger)
-                branch_id = branch.persist()
-                branch_item['branch_id'] = branch_id
-                branches.append(branch_id)
-                branch_index += 1
+            campaign = Campaign(info_item, db_handler, logger)
+            campaign_id = campaign.persist()
+            info_item['campaign_id'] = campaign_id
 
-                # 处理 branch_contacter
-                if branch_item['redeem_type'] in (2, 3, 7):
-                    branch_contacter = BranchContacter(branch_item, db_handler, logger)
-                    branch_contacter.persist()
+            campaign_branch = CampaignBranch(info_item, db_handler, logger)
+            campaignbranch_id = campaign_branch.persist()
+            info_item['campaignbranch_id'] = campaignbranch_id
 
-                # 处理 branch_user
-                branch_user = User(branch_item, db_handler, logger)
-                branch_user_id = branch_user.persist()
-                # 关联branch user
-                branch_arg = {
-                    'table_name': 'branch_users',
+            # 关联campaignbranch 和 branch
+            for branch_id in branches:
+                cbb_arg = {
+                    'table_name': 'campaignbranch_has_branches',
                     'columns': (
+                        ('campaignbranch_id', campaignbranch_id),
                         ('branch_id', branch_id),
-                        ('user_id', branch_user_id),
                     )
                 }
-                create_relation(branch_arg, db_handler, logger)
+                create_relation(cbb_arg, db_handler, logger)
 
-            for info_item in campaign_info['items']:
-                info_item['brand_id'] = int(brand_id)
-                info_item['brand_intro'] = campaign_info['brand']['brand_intro']
-                item = Item(info_item, db_handler, logger)
-                item_id = item.persist()
-                info_item['item_id'] = item_id
-
-                campaign = Campaign(info_item, db_handler, logger)
-                campaign_id = campaign.persist()
-                info_item['campaign_id'] = campaign_id
-
-                campaign_branch = CampaignBranch(info_item, db_handler, logger)
-                campaignbranch_id = campaign_branch.persist()
-                info_item['campaignbranch_id'] = campaignbranch_id
-
-                # 关联campaignbranch 和 branch
-                for branch_id in branches:
-                    cbb_arg = {
-                        'table_name': 'campaignbranch_has_branches',
-                        'columns': (
-                            ('campaignbranch_id', campaignbranch_id),
-                            ('branch_id', branch_id),
-                        )
-                    }
-                    create_relation(cbb_arg, db_handler, logger)
-
-    db_handler.close()
-except:
-    logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+db_handler.close()
+# except:
+#     logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
