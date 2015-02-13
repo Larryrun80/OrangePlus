@@ -5,9 +5,9 @@
 import re
 import time
 import os
-import sys
+import string
 import math
-from random import randint
+import random
 
 import xlrd
 import requests
@@ -65,13 +65,13 @@ class CampaignDealer:
             ids = ''
             for record in recorders:
                 ids += str(record[0]) + ' '
-            raise RuntimeError('EXISTS! id: %s' % ids)
+            raise RuntimeError('%s EXISTS! id: %s' % (self.table_name, ids))
 
         key_params = ''
         val_params = ''
         for key, val in self.__dict__.items():
             if 'db_handler' != key:
-                key_params += key + ', '
+                key_params += '`' + key + '`, '
                 if isinstance(val, str):
                     val_params += "'" + val + "', "
                 else:
@@ -82,10 +82,13 @@ class CampaignDealer:
 
         sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(table_name=self.table_name, columns=key_params, vals=val_params)
 
-        # cursor = self.db_handler.execute(sql)
-        # self.db_handler.commit()
-        # result = cursor.lastrowid
-        # return result
+        print('='*10 + self.table_name + '='*10)
+        print(sql)
+        # print(self.__dict__)
+        cursor = self.db_handler.execute(sql)
+        self.db_handler.commit()
+        result = cursor.lastrowid
+        return result
 
 
 class Campaign(CampaignDealer):
@@ -145,7 +148,7 @@ class CampaignBranch(CampaignDealer):
         ('market_price', float, 1, 'market_price'),
         ('stock', str, 1, 'stock'),
     )
-    table_name = 'campaignbranch'
+    table_name = 'campaign_branch'
 
     def __init__(self, arg, db_handler):
         CampaignDealer.__init__(self, arg, db_handler)
@@ -217,6 +220,8 @@ class Branch(CampaignDealer):
         ('address', str, 1, 'address'),
         ('phone', str, 0, 'tel'),
         ('work_hour', str, 0, 'redeem_time'),
+        ('lat', float, 0, 'lat'),
+        ('lng', float, 0, 'lng'),
     )
     table_name = 'branch'
 
@@ -233,16 +238,30 @@ class Branch(CampaignDealer):
 
 
 class BranchContacter(CampaignDealer):
+
     """docstring for Branch_contacter"""
 
     class_filter = (
-        ('brand_id', int, 0, 'branch_id'),
+        ('branch_id', int, 0, 'branch_id'),
         ('phone', str, 1, 'tel'),
     )
-    table_name = 'branch'
+    table_name = 'branch_contacter'
 
     def __init__(self, arg, db_handler):
         CampaignDealer.__init__(self, arg, db_handler)
+
+    def exists_recorder(self):
+        sql = '''
+        SELECT  id
+        FROM    {table_name}
+        WHERE   tel = '{tel}'
+        ;
+        '''.format(table_name=self.table_name, tel=self.phone)
+        bc = self.db_handler.execute(sql).fetchall()
+        if len(bc) == 0:
+            return None
+        else:
+            return bc
 
     def persist(self, db_handler):
         self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -275,8 +294,49 @@ class Item(CampaignDealer):
         return CampaignDealer.persist(self)
 
 
-def find_content(origin_string, key_name):
+class User(CampaignDealer):
 
+    """docstring for User"""
+
+    class_filter = (
+        ('account', str, 1, 'username'),
+    )
+    table_name = 'user'
+
+    def __init__(self, arg, db_handler):
+        CampaignDealer.__init__(self, arg, db_handler)
+
+    def exists_recorder(self):
+        sql = '''
+        SELECT  id
+        FROM    {table_name}
+        WHERE   username = '{username}'
+        ;
+        '''.format(table_name=self.table_name, username=self.username)
+        user = self.db_handler.execute(sql).fetchall()
+        if len(user) == 0:
+            return None
+        else:
+            return user
+
+    def persist(self, db_handler):
+        self.created_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.updated_at = time.strftime('%Y-%m-%d %H:%M:%S')
+        self.password = time.strftime('%y%m%d')
+        self.username_canonical = self.username
+        self.email = self.username + '@branch.doweidu.com'
+        self.email_canonical = self.email
+        self.enabled = 1
+        chars = string.ascii_lowercase + string.digits
+        self.salt = ''.join([random.choice(chars) for i in range(31)])
+        self.locked = 0
+        self.expired = 0
+        self.roles = 'a:0:{}'
+        self.credentials_expired = 0
+        return CampaignDealer.persist(self)
+
+
+def find_content(origin_string, key_name):
     '''
         从一个cell中过滤掉提示文字，或许需要的内容
     '''
@@ -295,7 +355,6 @@ def find_content(origin_string, key_name):
 
 
 def get_info(file_name):
-
     '''
         从excel获取非门店以外的所有信息
     '''
@@ -395,21 +454,41 @@ def get_info(file_name):
     return result
 
 
-def generate_account(brand_name, level=0):
+def generate_account(brand_name, pattern=0):
     zhPattern = re.compile(u'[\u4e00-\u9fa5]+')
     if brand_name is None or not zhPattern.search(brand_name):
         raise RuntimeError('No Chinese Character Found: %s', brand_name)
 
     brand_account = ''
-    if 0 == level:
-        # level 0 的生成规则为拼音首字母
+    if 0 == pattern:
+        # pattern 0 的生成规则为拼音首字母
         for j in range(len(brand_name)):
             brand_account += pypinyin.pinyin(brand_name[j], pypinyin.FIRST_LETTER)[0][0]
         return brand_account
 
 
-def get_branches(file_name, city=None):
+def get_branch_account(prefix, db_handler, index=0):
+    is_username_not_available = True
+    username = ''
+    while is_username_not_available:
+        index += 1
+        username = prefix + str(index)
+        is_username_not_available = is_username_exists(username, db_handler)
+    return username
 
+
+def is_username_exists(username, db_handler):
+    sql = '''
+        SELECT  id
+        FROM    user
+        WHERE   username = '{username}'
+        ;
+    '''.format(username=username)
+    user = db_handler.execute(sql).fetchall()
+    return len(user) > 0
+
+
+def get_branches(file_name, city=None):
     '''
         从excel获取所有门店信息
     '''
@@ -441,8 +520,8 @@ def get_branches(file_name, city=None):
             branch_row = i + 1
             break
 
-    branches = [] # 用于存储处理好的门店
-    offset = 0 # offset 在创建门店账号时提供后缀
+    branches = []  # 用于存储处理好的门店
+    offset = 0  # offset 在创建门店账号时提供后缀
     # 如果某一行最后一列的值为空，代表着这行不是门店信息了
     while table.cell(branch_row, col_count-1).value != '':
         offset = offset + 1
@@ -467,7 +546,6 @@ def get_branches(file_name, city=None):
 
 
 def get_lat_lng_using_address(address, city=None):
-
     '''
         通过地址文字获取坐标
         调用soso地图API
@@ -475,7 +553,7 @@ def get_lat_lng_using_address(address, city=None):
     '''
 
     request_url = 'http://apis.map.qq.com/ws/geocoder/v1'
-    key = '3OUBZ-QW53G-Q5DQ4-I6RTL-UFK53-POFWA' # soso的开发者key
+    key = '3OUBZ-QW53G-Q5DQ4-I6RTL-UFK53-POFWA'  # soso的开发者key
     request_url += '?address=' + address + '&key=' + key
     if city is not None:
         request_url += '&region=' + city
@@ -490,7 +568,7 @@ def get_lat_lng_using_address(address, city=None):
             return (response['result']['location']['lng'],
                     response['result']['location']['lat'],)
     except:
-        return (0,0)
+        return (0, 0)
 
 
 def deal_phone_number(value):
@@ -521,6 +599,27 @@ def deal_redeem_type(value):
         return 0
 
 
+def create_relation(arg, db_handler):
+    '''
+        建立关联表
+        arg传入一个dict，格式为：
+        {
+            'table_name': table_name,
+            'columns': (('column_name', 'value'), ('column_name', 'value'))
+        }
+    '''
+    if isinstance(arg, dict) and len(arg.keys())==2 and 'table_name' in arg.keys() and 'columns' in arg.keys():
+        try:
+            sql = 'INSERT INTO  {table_name} ({col1}, {col2}) VALUES ({value1}, {value2});'.format(table_name=arg['table_name'], col1=arg['columns'][0][0], col2=arg['columns'][1][0], value1=arg['columns'][0][1], value2=arg['columns'][1][1])
+            print(sql)
+            db_handler.execute(sql)
+            db_handler.commit()
+        except RuntimeError as e:
+            print(e)
+    else:
+        raise RuntimeError('Create Relation Failed: Pls Check Param')
+
+
 os.environ['TZ'] = 'Asia/Shanghai'
 db_handler = OrangeMySQL('DB_ORANGE')
 file_name = 'abc.xls'
@@ -529,33 +628,55 @@ try:
     campaign_info = get_info(file_name)
     if campaign_info is not None:
         branch_info = get_branches(file_name)
-        # print(campaign_info)
-        # print(branch_info)
+        print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
 
         if branch_info is not None:
             brand = Brand(campaign_info['brand'], db_handler)
             brand_id = brand.persist(db_handler)
-            brand_id = 1
+            brand_user = User(campaign_info['brand'], db_handler)
+            brand_user_id = brand_user.persist(db_handler)
+            # 关联brand user
+            brand_arg = {
+                'table_name': 'brand_users',
+                'columns': (
+                    ('brand_id', brand_id),
+                    ('user_id', brand_user_id),
+                )
+            }
+            create_relation(brand_arg, db_handler)
+
             branches = []
 
             # 开始处理 branch 相关信息
+            branch_index = 0
             for branch_item in branch_info:
                 branch_item['brand_id'] = int(brand_id)
                 branch_item['city'] = campaign_info['brand']['city']
                 branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
+                branch_item['account'] = get_branch_account(campaign_info['brand']['account'], db_handler, branch_index)
                 branch = Branch(branch_item, db_handler)
                 branch_id = branch.persist(db_handler)
-                branch_id = randint(0,1000)
                 branch_item['branch_id'] = branch_id
                 branches.append(branch_id)
-                print(branch.__dict__)
-                print(branches)
+                branch_index += 1
 
                 # 处理 branch_contacter
-                branch_contacter = BranchContacter(branch_item, db_handler)
-                branch_contacter.persist(db_handler)
-                print(branch_contacter.__dict__)
+                if branch_item['redeem_type'] in (2, 3, 7):
+                    branch_contacter = BranchContacter(branch_item, db_handler)
+                    branch_contacter.persist(db_handler)
 
+                # 处理 branch_user
+                branch_user = User(branch_item, db_handler)
+                branch_user_id = branch_user.persist(db_handler)
+                # 关联branch user
+                branch_arg = {
+                    'table_name': 'branch_users',
+                    'columns': (
+                        ('branch_id', branch_id),
+                        ('user_id', branch_user_id),
+                    )
+                }
+                create_relation(branch_arg, db_handler)
 
             print('=' * 100)
             for info_item in campaign_info['items']:
@@ -563,21 +684,26 @@ try:
                 info_item['brand_intro'] = campaign_info['brand']['brand_intro']
                 item = Item(info_item, db_handler)
                 item_id = item.persist(db_handler)
-                item_id = randint(1000, 2000)
                 info_item['item_id'] = item_id
-                print(item.__dict__)
 
                 campaign = Campaign(info_item, db_handler)
                 campaign_id = campaign.persist(db_handler)
-                campaign_id = randint(2000, 3000)
                 info_item['campaign_id'] = campaign_id
-                print(campaign.__dict__)
 
                 campaign_branch = CampaignBranch(info_item, db_handler)
                 campaignbranch_id = campaign_branch.persist(db_handler)
-                campaignbranch_id = randint(3000, 4000)
                 info_item['campaignbranch_id'] = campaignbranch_id
-                print(campaign_branch.__dict__)
+
+                # 关联campaignbranch 和 branch
+                for branch_id in branches:
+                    cbb_arg = {
+                        'table_name': 'campaignbranch_has_branches',
+                        'columns': (
+                            ('campaignbranch_id', campaignbranch_id),
+                            ('branch_id', branch_id),
+                        )
+                    }
+                    create_relation(cbb_arg, db_handler)
 
     db_handler.close()
 except RuntimeError as e:
