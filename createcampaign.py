@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 # Filename: createcampaign.py
 
-import re
-import time
-import os
-import string
 import math
+import os
 import random
+import re
+import shutil
+import string
 import sys
+import time
 
 import xlrd
 import requests
@@ -92,7 +93,6 @@ class CampaignDealer:
         # 生成sql语句并执行
         sql = "INSERT INTO {table_name} {columns} VALUES {vals}".format(
             table_name=self.table_name, columns=key_params, vals=val_params)
-        print(sql)
         self.logger.info('='*10 + self.table_name + '='*10)
         self.logger.info(sql)
 
@@ -402,6 +402,9 @@ def get_info(file_name):
                 brand[brand_contents[key_index][0]] = value
                 if key_index < len(brand_contents) - 1:
                     key_index = key_index + 1
+
+    if len(brand) == 0:
+        raise RuntimeError('Reading Data Failed')
     # 将city转化为id
     tmp_city = get_city_id(brand['city'])
     if tmp_city == 0:
@@ -595,14 +598,14 @@ def get_lat_lng_using_address(address, city=None):
     try:
         response = requests.get(request_url, timeout=(5, 50)).json()
         if response['status'] != 0:
-            return (0, 0)
+            return (0.0, 0.0)
         elif response['result']['deviation'] == -1:
-            return (0, 0)
+            return (0.0, 0.0)
         else:
             return (response['result']['location']['lng'],
                     response['result']['location']['lat'],)
     except:
-        return (0, 0)
+        return (0.0, 0.0)
 
 
 def deal_phone_number(value):
@@ -656,94 +659,149 @@ def create_relation(arg, db_handler, logger):
         raise RuntimeError('Create Relation Failed: Pls Check Param')
 
 
+def deal_file(file_name, redeem_limited=True):
+    campaign_info = get_info(file_name)
+    if campaign_info is not None:
+        branch_info = get_branches(file_name)
+        logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+        print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+
+        if branch_info is not None:
+            brand = Brand(campaign_info['brand'], db_handler, logger)
+            brand_id = brand.persist()
+            brand_user = User(campaign_info['brand'], db_handler, logger)
+            brand_user_id = brand_user.persist()
+            # 关联brand user
+            brand_arg = {
+                'table_name': 'brand_users',
+                'columns': (
+                    ('brand_id', brand_id),
+                    ('user_id', brand_user_id),
+                )
+            }
+            create_relation(brand_arg, db_handler, logger)
+
+            # 开始处理 branch 相关信息
+            branches = []
+            branch_index = 0
+            for branch_item in branch_info:
+                branch_item['brand_id'] = int(brand_id)
+                branch_item['city'] = campaign_info['brand']['city']
+                branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
+                branch_item['account'] = get_branch_account(
+                    campaign_info['brand']['account'], db_handler, branch_index)
+                branch = Branch(branch_item, db_handler, logger)
+                branch_id = branch.persist()
+                branch_item['branch_id'] = branch_id
+                branches.append(branch_id)
+                branch_index += 1
+
+                # 处理 branch_contacter
+                if branch_item['redeem_type'] in (2, 3, 7):
+                    branch_contacter = BranchContacter(
+                        branch_item, db_handler, logger)
+                    branch_contacter.persist()
+
+                # 处理 branch_user
+                branch_user = User(branch_item, db_handler, logger)
+                branch_user_id = branch_user.persist()
+                # 关联branch user
+                branch_arg = {
+                    'table_name': 'branch_users',
+                    'columns': (
+                        ('branch_id', branch_id),
+                        ('user_id', branch_user_id),
+                    )
+                }
+                create_relation(branch_arg, db_handler, logger)
+
+            # 开始处理item和campaign branch
+            for info_item in campaign_info['items']:
+                # 处理item
+                info_item['brand_id'] = int(brand_id)
+                info_item['brand_intro'] = campaign_info['brand']['brand_intro']
+                item = Item(info_item, db_handler, logger)
+                item_id = item.persist()
+                info_item['item_id'] = item_id
+
+                # 处理campaign
+                campaign = Campaign(info_item, db_handler, logger)
+                campaign_id = campaign.persist()
+                info_item['campaign_id'] = campaign_id
+
+                # 处理campaign branch
+                campaign_branches = []
+
+                if redeem_limited:
+                    # cb_count为生成的campaign branch数量
+                    cb_count = len(branches)
+                else:
+                    cb_count = 1
+                for i in range(cb_count):
+                    campaign_branch = CampaignBranch(info_item, db_handler, logger)
+                    campaignbranch_id = campaign_branch.persist()
+                    campaign_branches.append(campaignbranch_id)
+
+                # 关联campaignbranch 和 branch
+                if cb_count == 1:  # 单店或通兑
+                    for branch_id in branches:
+                        cbb_arg = {
+                            'table_name': 'campaignbranch_has_branches',
+                            'columns': (
+                                ('campaignbranch_id', campaignbranch_id),
+                                ('branch_id', branch_id),
+                            )
+                        }
+                        create_relation(cbb_arg, db_handler, logger)
+                else:       # 多店非通兑
+                    for i in range(cb_count):
+                        cbb_arg = {
+                            'table_name': 'campaignbranch_has_branches',
+                            'columns': (
+                                ('campaignbranch_id', campaign_branches[i]),
+                                ('branch_id', branches[i]),
+                            )
+                        }
+                        create_relation(cbb_arg, db_handler, logger)
+    print('done')
+
+########################## START WORK ##################################
+
 os.environ['TZ'] = 'Asia/Shanghai'
 db_handler = OrangeMySQL('DB_ORANGE')
 logger = OrangeLog('LOG_ORANGE', 'CREATER').getLogger()
-file_name = '（熊管家）3月1号（电话）上线申请表.xlsx'
 
-# try:
-# campaign_info = get_info(file_name)
-# if campaign_info is not None:
-#     branch_info = get_branches(file_name)
-#     logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
-#     print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+base_dir = os.path.split(os.path.realpath(__file__))[0] + '/files/creater'
+limit_dir = base_dir + '/limited'           # 非通兑源文件路径
+if not os.path.exists(limit_dir):
+    os.makedirs(limit_dir)
+no_limit_dir = base_dir + '/notlimited'     # 通兑源文件路径
+if not os.path.exists(no_limit_dir):
+    os.makedirs(no_limit_dir)
+dealed_dir = base_dir + '/dealed'           # 处理后文件路径
+if not os.path.exists(dealed_dir):
+    os.makedirs(dealed_dir)
 
-#     if branch_info is not None:
-#         brand = Brand(campaign_info['brand'], db_handler, logger)
-#         brand_id = brand.persist()
-#         brand_user = User(campaign_info['brand'], db_handler, logger)
-#         brand_user_id = brand_user.persist()
-#         # 关联brand user
-#         brand_arg = {
-#             'table_name': 'brand_users',
-#             'columns': (
-#                 ('brand_id', brand_id),
-#                 ('user_id', brand_user_id),
-#             )
-#         }
-#         create_relation(brand_arg, db_handler, logger)
+try:
+    redeem_limited = True  # true表示非通兑，false为通兑
 
-#         branches = []
+    # 处理非通兑商品
+    for filename in os.listdir(limit_dir):
+        if filename[0] != '.':
+            origin_filename = limit_dir + '/' + filename
+            dealed_filename = dealed_dir + '/l_' + filename
+            deal_file(origin_filename, True)
+            shutil.move(origin_filename, dealed_filename)
 
-#         # 开始处理 branch 相关信息
-#         branch_index = 0
-#         for branch_item in branch_info:
-#             branch_item['brand_id'] = int(brand_id)
-#             branch_item['city'] = campaign_info['brand']['city']
-#             branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
-#             branch_item['account'] = get_branch_account(
-#                 campaign_info['brand']['account'], db_handler, branch_index)
-#             branch = Branch(branch_item, db_handler, logger)
-#             branch_id = branch.persist()
-#             branch_item['branch_id'] = branch_id
-#             branches.append(branch_id)
-#             branch_index += 1
+    # 处理通兑商品
+    for filename in os.listdir(no_limit_dir):
+        if filename[0] != '.':
+            origin_filename = no_limit_dir + '/' + filename
+            dealed_filename = dealed_dir + '/nl_' + filename
+            deal_file(origin_filename, False)
+            shutil.move(origin_filename, dealed_filename)
 
-#             # 处理 branch_contacter
-#             if branch_item['redeem_type'] in (2, 3, 7):
-#                 branch_contacter = BranchContacter(
-#                     branch_item, db_handler, logger)
-#                 branch_contacter.persist()
-
-#             # 处理 branch_user
-#             branch_user = User(branch_item, db_handler, logger)
-#             branch_user_id = branch_user.persist()
-#             # 关联branch user
-#             branch_arg = {
-#                 'table_name': 'branch_users',
-#                 'columns': (
-#                     ('branch_id', branch_id),
-#                     ('user_id', branch_user_id),
-#                 )
-#             }
-#             create_relation(branch_arg, db_handler, logger)
-
-#         for info_item in campaign_info['items']:
-#             info_item['brand_id'] = int(brand_id)
-#             info_item['brand_intro'] = campaign_info['brand']['brand_intro']
-#             item = Item(info_item, db_handler, logger)
-#             item_id = item.persist()
-#             info_item['item_id'] = item_id
-
-#             campaign = Campaign(info_item, db_handler, logger)
-#             campaign_id = campaign.persist()
-#             info_item['campaign_id'] = campaign_id
-
-#             campaign_branch = CampaignBranch(info_item, db_handler, logger)
-#             campaignbranch_id = campaign_branch.persist()
-#             info_item['campaignbranch_id'] = campaignbranch_id
-
-#             # 关联campaignbranch 和 branch
-#             for branch_id in branches:
-#                 cbb_arg = {
-#                     'table_name': 'campaignbranch_has_branches',
-#                     'columns': (
-#                         ('campaignbranch_id', campaignbranch_id),
-#                         ('branch_id', branch_id),
-#                     )
-#                 }
-#                 create_relation(cbb_arg, db_handler, logger)
-
-# db_handler.close()
-# except:
-#     logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
+    db_handler.close()
+except RuntimeError as e:
+    print(e)
+    logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
