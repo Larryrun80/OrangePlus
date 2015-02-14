@@ -662,88 +662,88 @@ logger = OrangeLog('LOG_ORANGE', 'CREATER').getLogger()
 file_name = '（熊管家）3月1号（电话）上线申请表.xlsx'
 
 # try:
-campaign_info = get_info(file_name)
-if campaign_info is not None:
-    branch_info = get_branches(file_name)
-    logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
-    print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+# campaign_info = get_info(file_name)
+# if campaign_info is not None:
+#     branch_info = get_branches(file_name)
+#     logger.info('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
+#     print('*'*20 + campaign_info['brand']['brand_name'] + '*'*20)
 
-    if branch_info is not None:
-        brand = Brand(campaign_info['brand'], db_handler, logger)
-        brand_id = brand.persist()
-        brand_user = User(campaign_info['brand'], db_handler, logger)
-        brand_user_id = brand_user.persist()
-        # 关联brand user
-        brand_arg = {
-            'table_name': 'brand_users',
-            'columns': (
-                ('brand_id', brand_id),
-                ('user_id', brand_user_id),
-            )
-        }
-        create_relation(brand_arg, db_handler, logger)
+#     if branch_info is not None:
+#         brand = Brand(campaign_info['brand'], db_handler, logger)
+#         brand_id = brand.persist()
+#         brand_user = User(campaign_info['brand'], db_handler, logger)
+#         brand_user_id = brand_user.persist()
+#         # 关联brand user
+#         brand_arg = {
+#             'table_name': 'brand_users',
+#             'columns': (
+#                 ('brand_id', brand_id),
+#                 ('user_id', brand_user_id),
+#             )
+#         }
+#         create_relation(brand_arg, db_handler, logger)
 
-        branches = []
+#         branches = []
 
-        # 开始处理 branch 相关信息
-        branch_index = 0
-        for branch_item in branch_info:
-            branch_item['brand_id'] = int(brand_id)
-            branch_item['city'] = campaign_info['brand']['city']
-            branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
-            branch_item['account'] = get_branch_account(
-                campaign_info['brand']['account'], db_handler, branch_index)
-            branch = Branch(branch_item, db_handler, logger)
-            branch_id = branch.persist()
-            branch_item['branch_id'] = branch_id
-            branches.append(branch_id)
-            branch_index += 1
+#         # 开始处理 branch 相关信息
+#         branch_index = 0
+#         for branch_item in branch_info:
+#             branch_item['brand_id'] = int(brand_id)
+#             branch_item['city'] = campaign_info['brand']['city']
+#             branch_item['brand_intro'] = campaign_info['brand']['brand_intro']
+#             branch_item['account'] = get_branch_account(
+#                 campaign_info['brand']['account'], db_handler, branch_index)
+#             branch = Branch(branch_item, db_handler, logger)
+#             branch_id = branch.persist()
+#             branch_item['branch_id'] = branch_id
+#             branches.append(branch_id)
+#             branch_index += 1
 
-            # 处理 branch_contacter
-            if branch_item['redeem_type'] in (2, 3, 7):
-                branch_contacter = BranchContacter(
-                    branch_item, db_handler, logger)
-                branch_contacter.persist()
+#             # 处理 branch_contacter
+#             if branch_item['redeem_type'] in (2, 3, 7):
+#                 branch_contacter = BranchContacter(
+#                     branch_item, db_handler, logger)
+#                 branch_contacter.persist()
 
-            # 处理 branch_user
-            branch_user = User(branch_item, db_handler, logger)
-            branch_user_id = branch_user.persist()
-            # 关联branch user
-            branch_arg = {
-                'table_name': 'branch_users',
-                'columns': (
-                    ('branch_id', branch_id),
-                    ('user_id', branch_user_id),
-                )
-            }
-            create_relation(branch_arg, db_handler, logger)
+#             # 处理 branch_user
+#             branch_user = User(branch_item, db_handler, logger)
+#             branch_user_id = branch_user.persist()
+#             # 关联branch user
+#             branch_arg = {
+#                 'table_name': 'branch_users',
+#                 'columns': (
+#                     ('branch_id', branch_id),
+#                     ('user_id', branch_user_id),
+#                 )
+#             }
+#             create_relation(branch_arg, db_handler, logger)
 
-        for info_item in campaign_info['items']:
-            info_item['brand_id'] = int(brand_id)
-            info_item['brand_intro'] = campaign_info['brand']['brand_intro']
-            item = Item(info_item, db_handler, logger)
-            item_id = item.persist()
-            info_item['item_id'] = item_id
+#         for info_item in campaign_info['items']:
+#             info_item['brand_id'] = int(brand_id)
+#             info_item['brand_intro'] = campaign_info['brand']['brand_intro']
+#             item = Item(info_item, db_handler, logger)
+#             item_id = item.persist()
+#             info_item['item_id'] = item_id
 
-            campaign = Campaign(info_item, db_handler, logger)
-            campaign_id = campaign.persist()
-            info_item['campaign_id'] = campaign_id
+#             campaign = Campaign(info_item, db_handler, logger)
+#             campaign_id = campaign.persist()
+#             info_item['campaign_id'] = campaign_id
 
-            campaign_branch = CampaignBranch(info_item, db_handler, logger)
-            campaignbranch_id = campaign_branch.persist()
-            info_item['campaignbranch_id'] = campaignbranch_id
+#             campaign_branch = CampaignBranch(info_item, db_handler, logger)
+#             campaignbranch_id = campaign_branch.persist()
+#             info_item['campaignbranch_id'] = campaignbranch_id
 
-            # 关联campaignbranch 和 branch
-            for branch_id in branches:
-                cbb_arg = {
-                    'table_name': 'campaignbranch_has_branches',
-                    'columns': (
-                        ('campaignbranch_id', campaignbranch_id),
-                        ('branch_id', branch_id),
-                    )
-                }
-                create_relation(cbb_arg, db_handler, logger)
+#             # 关联campaignbranch 和 branch
+#             for branch_id in branches:
+#                 cbb_arg = {
+#                     'table_name': 'campaignbranch_has_branches',
+#                     'columns': (
+#                         ('campaignbranch_id', campaignbranch_id),
+#                         ('branch_id', branch_id),
+#                     )
+#                 }
+#                 create_relation(cbb_arg, db_handler, logger)
 
-db_handler.close()
+# db_handler.close()
 # except:
 #     logger.error('%s: %s', str(sys.exc_info()[0]), str(sys.exc_info()[1]))
