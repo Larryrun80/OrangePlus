@@ -366,22 +366,24 @@ def get_info(file_name):
     # 定义所有需要的数据，用元组表示每一组数据
     # 第一个元素是用来存储数据的key，第二个是excel中的数据指示（需写全）
     # 第三个元素是需要处理为什么格式，''表示不需处理
+    # 第四个元素表示是否必须字段， True为必须，False不必须
     # 当前支撑的处理格式为: date, int, float
     # 遍历的时候为了节省资源，是在一次遍历中获取所有数据，获取到一个数据后在剩余cell查找下一个，所以需要保证content中的顺序符合先左后右先上后下的原则
     brand_contents = (
-        ('brand_name', '商户名称（线上展示）', ''),
-        ('company_name', '公司名称（合同签约方）', ''),
-        ('city', '所在城市', 'int'),
-        ('brand_intro', '公司或品牌简介', ''),
+        ('brand_name', '商户名称（线上展示）', '', True),
+        ('company_name', '公司名称（合同签约方）', '', True),
+        ('city', '所在城市', 'int', True),
+        ('brand_intro', '公司或品牌简介', '', True),
+        ('email', '商户邮箱', '', False)
     )
 
     item_contents = (
-        ('item_name', '商品名称', ''),
-        ('market_price', '市场价格', 'float'),
-        ('stock', '每日供应量', ''),
-        ('start_time', '上线日期', 'date'),
-        ('end_time', '下线日期', 'date'),
-        ('item_intro', '商品详细描述（特色/成分/口感/功效等）', ''),
+        ('item_name', '商品名称', '', True),
+        ('market_price', '市场价格', 'float', True),
+        ('stock', '每日供应量', '', True),
+        ('start_time', '上线日期', 'date', True),
+        ('end_time', '下线日期', 'date', True),
+        ('item_intro', '商品详细描述（特色/成分/口感/功效等）', '', True),
     )
 
     result = {}     # 存储返回结果
@@ -403,8 +405,21 @@ def get_info(file_name):
                 if key_index < len(brand_contents) - 1:
                     key_index = key_index + 1
 
-    if len(brand) == 0:
-        raise RuntimeError('Reading Data Failed')
+    # 检测是否文件格式被更改（brand 部分）
+    is_file_correct = True
+    brand_keys = []
+    for b_item in brand_contents:
+        if b_item[3]:
+            brand_keys.append(b_item[0])
+
+    for key in brand_keys:
+        if key not in brand.keys():
+            is_file_correct = False
+            missing_key = key
+            break
+
+    if not is_file_correct:
+        raise RuntimeError('Reading Data Failed, Not Include %s' % missing_key)
     # 将city转化为id
     tmp_city = get_city_id(brand['city'])
     if tmp_city == 0:
@@ -439,6 +454,9 @@ def get_info(file_name):
                     key_index = 0
                     items.append(item)
                     item = {}
+
+    if 0 == len(items):
+        raise RuntimeError('Reading Data Failed, Incorrect Item Info')
 
     result['items'] = items
     return result
@@ -551,6 +569,9 @@ def get_branches(file_name, city=None):
         'redeem_type',
     )
 
+    if col_count < len(branch_format):
+        raise RuntimeError('Branch Info Error')
+
     # branch_row定义了从哪一行开始门店数据
     branch_row = 0
     for i in range(row_count):
@@ -565,7 +586,10 @@ def get_branches(file_name, city=None):
         branch = {}
         # 遍历存储某个门店的全部信息
         for i in range(len(branch_format)):
-            branch[branch_format[i]] = table.cell(branch_row, i).value
+            branch[branch_format[i]] = str(table.cell(branch_row, i).value).strip()
+        if '' == branch['brand_name'] or '' == branch['address']:
+            raise RuntimeError('Branch Name Or Address Missing')
+
         # 格式化电话和手机
         branch['phone'] = deal_phone_number(branch['phone'])
         branch['mobile'] = deal_phone_number(branch['mobile'])
@@ -635,7 +659,7 @@ def deal_redeem_type(value):
             result += 4
         return result
     else:
-        return 0
+        raise RuntimeError('No Redeem Type Found')
 
 
 def create_relation(arg, db_handler, logger):
@@ -647,7 +671,8 @@ def create_relation(arg, db_handler, logger):
             'columns': (('column_name', 'value'), ('column_name', 'value'))
         }
     '''
-    if isinstance(arg, dict) and len(arg.keys()) == 2 and 'table_name' in arg.keys() and 'columns' in arg.keys():
+    if isinstance(arg, dict) and len(arg.keys()) == 2\
+            and 'table_name' in arg.keys() and 'columns' in arg.keys():
         try:
             sql = 'INSERT INTO  {table_name} ({col1}, {col2}) VALUES ({value1}, {value2});'.format(table_name=arg['table_name'], col1=arg['columns'][0][0], col2=arg['columns'][1][0], value1=arg['columns'][0][1], value2=arg['columns'][1][1])
             logger.info(sql)
@@ -788,6 +813,7 @@ try:
     # 处理非通兑商品
     for filename in os.listdir(limit_dir):
         if filename[0] != '.':
+            print('Dealing {0}'.format(filename))
             origin_filename = limit_dir + '/' + filename
             dealed_filename = dealed_dir + '/l_' + filename
             deal_file(origin_filename, True)
@@ -796,6 +822,7 @@ try:
     # 处理通兑商品
     for filename in os.listdir(no_limit_dir):
         if filename[0] != '.':
+            print('Dealing {0}'.format(filename))
             origin_filename = no_limit_dir + '/' + filename
             dealed_filename = dealed_dir + '/nl_' + filename
             deal_file(origin_filename, False)
