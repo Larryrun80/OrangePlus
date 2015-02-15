@@ -474,10 +474,13 @@ def find_content(origin_string, key_name):
     if -1 != pos:
         pos = pos + len(key_name)
     # 过滤掉可能的异常字符
-    while(origin_string[pos] in punctuation):
-        pos = pos + 1
+    if pos < len(origin_string):
+        while(origin_string[pos] in punctuation):
+            pos = pos + 1
 
-    return origin_string[pos:]
+        return origin_string[pos:]
+    else:
+        raise RuntimeError('Find Content Blank: %s' % key_name)
 
 
 def get_city_id(city_name):
@@ -593,7 +596,7 @@ def get_branches(file_name, city=None):
         # 遍历存储某个门店的全部信息
         for i in range(len(branch_format)):
             branch[branch_format[i]] = str(table.cell(branch_row, i).value).strip()
-        if '' == branch['brand_name'] or '' == branch['address']:
+        if '' == branch['branch_name'] or '' == branch['address']:
             raise RuntimeError('Branch Name Or Address Missing')
 
         # 格式化电话和手机
