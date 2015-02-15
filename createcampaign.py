@@ -509,15 +509,21 @@ def get_city_id(city_name):
 
 def generate_account(brand_name, pattern=0):
     zhPattern = re.compile(u'[\u4e00-\u9fa5]+')
-    if brand_name is None or not zhPattern.search(brand_name):
+
+    chinese_name = ''
+    for i in range(len(brand_name)):
+        if zhPattern.search(brand_name[i]):
+            chinese_name += brand_name[i]
+
+    if '' == chinese_name:
         raise RuntimeError('No Chinese Character Found: %s', brand_name)
 
     brand_account = ''
     if 0 == pattern:
         # pattern 0 的生成规则为拼音首字母
-        for j in range(len(brand_name)):
+        for j in range(len(chinese_name)):
             brand_account += pypinyin.pinyin(
-                brand_name[j], pypinyin.FIRST_LETTER)[0][0]
+                chinese_name[j], pypinyin.FIRST_LETTER)[0][0]
     if is_username_exists(brand_account, db_handler):
         raise RuntimeError('Brand User Name Exist: %s', brand_account)
     else:
