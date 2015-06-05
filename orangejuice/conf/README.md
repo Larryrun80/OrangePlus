@@ -1,7 +1,7 @@
 ### Something about Config files
 
 You should create your config file in this folder
-Whitch named
+Which named orangejuice.conf
 With following format:
 
 ```

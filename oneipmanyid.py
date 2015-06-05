@@ -20,7 +20,7 @@ def forbid_user():
         and m.money=15
         group by u.addIp
         order by count desc
-        limit 1000;
+        limit 1000;~
     '''
     result = db_oneipmanyid_hanlder.execute(querstring_user_addip)
     addip = result.fetchall()
@@ -33,13 +33,12 @@ def forbid_user():
                 where addIp = %s
                 and date_format(from_unixtime(addTime),'%Y-%m-%d') >
                 date_sub(date(now()),interval 2 day)
-                and date_format(from_unixtime(addTime),'%Y-%m-%d') <
+                and date_format(from_unicd xtime(addTime),'%Y-%m-%d') <
                 date(now())
                 ;
             '''
             db_oneipmanyid_hanlder.execute(querstring_user_id, ip)
             db_oneipmanyid_hanlder.commit()
-
 
 forbid_user()
 

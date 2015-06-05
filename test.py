@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # Filename: test.py
 
-import sys
+# import sys
 
-from orangejuice.utils.orangemail import OrangeMail
-
+from orangejuice.utils.umeng import UmengHandler
+# from orangejuice.utils.orangemail import OrangeMail
 # from orangejuice.utils.orangemysql import OrangeMySQL
 # from orangejuice.utils.orangecsv import OrangeCsv
 # from orangejuice.utils.orangelog import OrangeLog
@@ -84,3 +84,7 @@ from orangejuice.utils.orangemail import OrangeMail
 #     [ansi_file]
 # )
 
+# Umeng examplex
+# ============
+umeng = UmengHandler()
+umeng.get_event_data(umeng.appids['iOS'], 'good_banner_login', '2015-05-22')

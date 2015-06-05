@@ -42,11 +42,13 @@ for (poolId, shopId) in result:
     db_disrtibuteecode_handler.commit
 
 # 添加新的验证码
-    for j in  range(0,55):
-        querystring_add_records = 'insert into p' + str(poolId) + ' values (%s, 0)'
-        db_disrtibuteecode_handler.execute(querystring_add_records, ecodes.pop(0))
+    for j in range(0, 55):
+        querystring_add_records = 'insert into p'\
+                                     + str(poolId) + ' values (%s, 0)'
+        db_disrtibuteecode_handler.execute(
+            querystring_add_records, ecodes.pop(0))
         db_disrtibuteecode_handler.commit
-        j=j+1
+        j = j+1
 
 db_ecode_handler.close()
 db_disrtibuteecode_handler.close()
